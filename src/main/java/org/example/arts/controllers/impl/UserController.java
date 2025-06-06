@@ -1,0 +1,105 @@
+package org.example.arts.controllers.impl;
+
+import org.example.arts.dtos.*;
+import org.example.arts.entities.Sub;
+import org.example.arts.services.ArtService;
+import org.example.arts.services.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/users")
+public class UserController {
+
+    private final UserService userService;
+    private final ArtService artService;
+
+    @Autowired
+    public UserController(UserService userService, ArtService artService) {
+        this.userService = userService;
+        this.artService = artService;
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserDto> updateProfile(
+            @RequestBody UpdateUserDto request) {
+        UserDto user = userService.updateUser(request);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserDto> getCurrentUser() {
+        UserDto user = userService.getCurrentUserDto();
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me/min")
+    public ResponseEntity<UserMinDto> getCurrentMinUser() {
+        UserMinDto user = userService.getCurrentUserMinDto();
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/social-networks")
+    public ResponseEntity<List<SocialNetworkDto>> getSocialNetworks(
+            @RequestParam(required = false) String id) {
+        List<SocialNetworkDto> user = userService.getSocialNetworkUser(id);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/me/subscriptions")
+    public ResponseEntity<Page<SubDto>> getSubscriptions(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "12") Integer size){
+        Page<SubDto> subDto = userService.getSubscriptions(page, size);
+        return ResponseEntity.ok(subDto);
+    }
+
+    @PostMapping("subscribe")
+    public ResponseEntity<SubscribeDto> subscribe(
+            @RequestParam(required = false) String id){
+        SubscribeDto subDto = userService.subscribe(id);
+        return ResponseEntity.ok(subDto);
+    }
+
+    @GetMapping("subscribe")
+    public ResponseEntity<Boolean> isSubscribe(
+            @RequestParam(required = false) String id){
+        boolean flag = userService.isSubscribe(id);
+        return ResponseEntity.ok(flag);
+    }
+
+    @GetMapping()
+    public ResponseEntity<UserDto> getUser(
+            @RequestParam(required = false) String id) {
+        UserDto user = userService.getUser(id);
+        return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/arts")
+    public ResponseEntity<Page<ArtCardDto>> getArtByAuthor(@RequestParam(required = false) String id,
+                                                           @RequestParam(defaultValue = "1") Integer page,
+                                                           @RequestParam(defaultValue = "12") Integer size){
+        Page<ArtCardDto> arts = artService.getArtByAuthorId(id, page, size);
+        return ResponseEntity.ok(arts);
+    }
+
+    @GetMapping("/subs-with-arts")
+    public ResponseEntity<Page<SubWithArtsDto>> getSubsWithArts(
+            @RequestParam(defaultValue = "3") int artsPerAuthor,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "12") Integer size) {
+        Page<SubWithArtsDto> result = userService.getSubscriptionsWithArts(artsPerAuthor, page, size);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/get-recent-sub")
+    public ResponseEntity<List<UserMinDto>> getRecentSubscriptions(
+            @RequestParam(required = false) Integer limit) {
+        List<UserMinDto> user = userService.getRecentSubscriptions(limit);
+        return ResponseEntity.ok(user);
+    }
+}
