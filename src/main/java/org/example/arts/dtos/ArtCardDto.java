@@ -1,15 +1,22 @@
 package org.example.arts.dtos;
 
-import org.example.arts.entities.User;
-
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public class ArtCardDto {
+    private UUID uuid;
     private String name;
     private String imageUrl;
     private int countLikes;
     private int countViews;
     private LocalDateTime publicationTime;
+
+    public UUID getUuid() {
+        return uuid;
+    }
+    public void setUuid(UUID uuid) {
+        this.uuid = uuid;
+    }
 
     public String getName() {
         return name;

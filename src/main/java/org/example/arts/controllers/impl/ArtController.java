@@ -77,7 +77,7 @@ public class ArtController {
 
     @GetMapping("/feed")
     public ResponseEntity<Page<ArtCardDto>> getFeed(
-            @RequestParam String type,
+            @RequestParam(defaultValue = "trending") String type,
             @RequestParam int page,
             @RequestParam int size) {
 
