@@ -8,6 +8,7 @@ import org.example.arts.repo.TagRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -44,5 +45,20 @@ public class TagRepositoryImpl extends BaseRepository<Tag> implements TagReposit
         catch (NoResultException e){
             return false;
         }
+    }
+
+    @Override
+    public List<String> getNotExistsTags(Set<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return List.of();
+        }
+        List<String> existingNames = em.createQuery(
+                        "SELECT t.name " +
+                                "FROM Tag t " +
+                                "WHERE t.name IN :names", String.class)
+                .setParameter("names", tags)
+                .getResultList();
+        return tags.stream()
+                .filter(tag -> !existingNames.contains(tag)).toList();
     }
 }

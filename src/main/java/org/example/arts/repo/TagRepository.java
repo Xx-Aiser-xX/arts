@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface TagRepository {
@@ -16,4 +17,5 @@ public interface TagRepository {
 
     List<Tag> findByArtId(UUID artId, boolean deleted);
     boolean tagExists(String name);
+    List<String> getNotExistsTags(Set<String> tags);
 }

@@ -23,4 +23,10 @@ public class GlobalExceptionHandler {
         model.addAttribute("errorMessage", e.getMessage());
         return "exception";
     }
+
+    @ExceptionHandler(AuthorizationException.class)
+    public String dataException(AuthorizationException e, Model model){
+        model.addAttribute("errorMessage", e.getMessage());
+        return "exception";
+    }
 }

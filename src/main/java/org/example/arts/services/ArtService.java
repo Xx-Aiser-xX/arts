@@ -1,8 +1,11 @@
 package org.example.arts.services;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.example.arts.dtos.update.ArtUpdateDto;
 import org.example.arts.entities.*;
+import org.example.arts.exceptions.AuthorizationException;
 import org.example.arts.repo.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +18,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,9 +39,13 @@ public class ArtService {
     private final SubRepository subRepo;
     private final TagService tagService;
     private final ModelMapper modelMapper;
+    private final S3Client s3Client;
+
+    @Value("${aws.s3.bucket-name}")
+    private String bucketName;
 
     @Autowired
-    public ArtService(ArtRepository artRepo, UserRepository userRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagService tagService, ModelMapper modelMapper) {
+    public ArtService(ArtRepository artRepo, UserRepository userRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagService tagService, ModelMapper modelMapper, S3Client s3Client) {
         this.artRepo = artRepo;
         this.userRepo = userRepo;
         this.tagRepo = tagRepo;
@@ -41,6 +54,7 @@ public class ArtService {
         this.subRepo = subRepo;
         this.tagService = tagService;
         this.modelMapper = modelMapper;
+        this.s3Client = s3Client;
     }
 
     public ArtDto getArtById(String id){
@@ -55,31 +69,57 @@ public class ArtService {
     @Transactional
     public ArtCreateDto create(ArtCreateDto artDto){
         Art art = modelMapper.map(artDto, Art.class);
-        art.setAuthor(getCurrentUser());
+        Optional<User> user = getCurrentUser();
+        if (user.isEmpty())
+            throw new AuthorizationException();
+        art.setAuthor(user.get());
         art.setPublicationTime(LocalDateTime.now());
-        Set<Tag> tags = new HashSet<>();
-        if(!artDto.getTags().isEmpty()){
-            for (TagDto tag : artDto.getTags()){
-                if (!tagRepo.tagExists(tag.getName())){
-                    tags.add(modelMapper.map(tag, Tag.class));
-                }
+
+        if (artDto.getImageFile() != null && !artDto.getImageFile().isEmpty()) {
+            try {
+                String fileName = UUID.randomUUID().toString() + "_" + artDto.getImageFile().getOriginalFilename();
+                String s3Url = uploadFileToS3(artDto.getImageFile(), fileName);
+                art.setImageUrl(s3Url);
+            } catch (IOException | S3Exception e) {
+                throw new RuntimeException("Ошибка при загрузке изображения в S3", e);
             }
         }
         art = artRepo.create(art);
-        for (Tag tag : tags){
-            tag = tagRepo.create(tag);
-            ArtTag artTag = new ArtTag(art, tag);
+        Set<String> tags = artDto.getTags().stream().map(TagDto::getName).collect(Collectors.toSet());
+        List<String> list = tagRepo.getNotExistsTags(tags);
+        for (String tag : list){
+            ArtTag artTag = new ArtTag(art, tagRepo.create(new Tag(tag)));
             artTagRepo.create(artTag);
         }
         return modelMapper.map(art, ArtCreateDto.class);
     }
 
     @Transactional
-    public ArtDto save(ArtDto artDto, List<TagDto> tagDto) {
-        Art art = modelMapper.map(artDto, Art.class);
+    public ArtDto save(ArtUpdateDto arts) {
+        Art art = modelMapper.map(arts, Art.class);
+        if (arts.getImageFile() != null && !arts.getImageFile().isEmpty()) {
+            try {
+                String fileName = UUID.randomUUID().toString() + "_" + arts.getImageFile().getOriginalFilename();
+                String s3Url = uploadFileToS3(arts.getImageFile(), fileName);
+                art.setImageUrl(s3Url);
+            } catch (IOException | S3Exception e) {
+                throw new RuntimeException("Ошибка при обновлении изображения в S3", e);
+            }
+        }
         artRepo.save(art);
-        tagService.updateListTagsInArt(tagDto, art);
+        tagService.updateListTagsInArt(arts.getTags(), art);
         return modelMapper.map(art, ArtDto.class);
+    }
+
+    private String uploadFileToS3(MultipartFile file, String fileName) throws IOException, S3Exception {
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .contentType(file.getContentType())
+                .build();
+
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+        return s3Client.utilities().getUrl(b -> b.bucket(bucketName).key(fileName)).toExternalForm();
     }
 
 
@@ -94,9 +134,7 @@ public class ArtService {
     public ArtDto findArtAndAuthorById(String id){
         UUID uuid = UUID.fromString(id);
         Art art = artRepo.findArtAndAuthorById(uuid, false);
-        ArtDto artDto = modelMapper.map(art, ArtDto.class);
-//        artDto.setAuthor(modelMapper.map(art.getAuthor(), UserDto.class));
-        return artDto;
+        return modelMapper.map(art, ArtDto.class);
     }
 
     public Page<ArtCardDto> getArtByAuthorId(String id, Integer page, Integer size){
@@ -113,12 +151,14 @@ public class ArtService {
 
     @Transactional
     public void viewArt(String artId){
+        Optional<User> user = getCurrentUser();
+        if (user.isEmpty())
+            return;
         UUID uuid = UUID.fromString(artId);
         Art art = artRepo.findById(uuid).get();
-        User user = getCurrentUser();
-        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.getId(), false);
+        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
         if (interaction == null){
-            interactionRepo.create(new Interaction(user,art));
+            interactionRepo.create(new Interaction(user.get(),art));
             art.setCountViews(art.getCountViews() + 1);
             artRepo.save(art);
         }
@@ -128,8 +168,10 @@ public class ArtService {
     public boolean likeArt(String artId){
         UUID uuid = UUID.fromString(artId);
         Art art = artRepo.findById(uuid).get();
-        User user = getCurrentUser();
-        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.getId(), false);
+        Optional<User> user = getCurrentUser();
+        if (user.isEmpty())
+            throw new AuthorizationException();
+        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
         if (!interaction.isLike()) {
             interaction.setLike(true);
             interaction.setLikedAt(LocalDateTime.now());
@@ -149,8 +191,10 @@ public class ArtService {
 
     @Transactional(readOnly = true)
     public Page<ArtCardDto> getLikedArtsByCurrentUser(int page, int size) {
-        UUID userId = getCurrentUserId();
-        List<Interaction> likes = interactionRepo.findLikedByUser(userId, true, false);
+        Optional<UUID> userId = getCurrentUserId();
+        if (userId.isEmpty())
+            throw new AuthorizationException();
+        List<Interaction> likes = interactionRepo.findLikedByUser(userId.get(), true, false);
 
         List<ArtCardDto> likedArts = likes.stream()
                 .map(Interaction::getArt)
@@ -165,8 +209,10 @@ public class ArtService {
 
     public boolean isLikeArt(String artId){
         UUID uuid = UUID.fromString(artId);
-        User user = getCurrentUser();
-        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.getId(), false);
+        Optional<User> user = getCurrentUser();
+        if (user.isEmpty())
+            return false;
+        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
         return interaction.isLike();
     }
 
@@ -214,9 +260,10 @@ public class ArtService {
 
 
     private Page<ArtCardDto> getRecommendedArts(int page, int size) {
-        UUID userId = getCurrentUserId();
-
-        List<Interaction> interactions = interactionRepo.findWithArtTagsByUserId(userId, false);
+        Optional<UUID> userId = getCurrentUserId();
+        if (userId.isEmpty())
+            throw new AuthorizationException();
+        List<Interaction> interactions = interactionRepo.findWithArtTagsByUserId(userId.get(), false);
 
         Set<UUID> tagIds = interactions.stream()
                 .flatMap(i -> i.getArt().getArtTagSet().stream())
@@ -234,8 +281,10 @@ public class ArtService {
     }
 
     private Page<ArtCardDto> getSubscribedArts(int page, int size) {
-        UUID userId = getCurrentUserId();
-        List<Sub> subs = subRepo.findSubAndUserBySubscriberId(userId, false);
+        Optional<UUID> userId = getCurrentUserId();
+        if (userId.isEmpty())
+            throw new AuthorizationException();
+        List<Sub> subs = subRepo.findSubAndUserBySubscriberId(userId.get(), false);
 
         Set<UUID> authorIds = subs.stream()
                 .map(sub -> sub.getTarget().getId())
@@ -253,7 +302,7 @@ public class ArtService {
 
 
     private Page<ArtCardDto> getLatestArts(int page, int size) {
-        LocalDateTime oneWeekAgo = LocalDateTime.now().minusDays(7);
+        LocalDateTime oneWeekAgo = LocalDateTime.now().minusDays(60);
         List<Art> latest = artRepo.findRecent(oneWeekAgo, false);
 
         List<ArtCardDto> result = latest.stream()
@@ -273,19 +322,31 @@ public class ArtService {
         return new PageImpl<>(list.subList(fromIndex, toIndex), PageRequest.of(page - 1, size), list.size());
     }
 
-
-    private Jwt getJwt(){
-        return (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    private Jwt getJwt() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt jwt) {
+            return jwt;
+        }
+        return null;
     }
 
-    private UUID getCurrentUserId(){
+
+    private Optional<UUID> getCurrentUserId(){
         Jwt jwt = getJwt();
-        return UUID.fromString(jwt.getSubject());
+        if (jwt == null)
+            return Optional.empty();
+        return Optional.of(UUID.fromString(jwt.getSubject()));
     }
 
-    private User getCurrentUser(){
-        UUID id = UUID.fromString(getJwt().getSubject());
-        Optional<User> user = userRepo.findById(id);
-        return user.get();
+    private Optional<User> getCurrentUser(){
+        Jwt jwt = getJwt();
+        if (jwt == null)
+            return Optional.empty();
+        UUID id = UUID.fromString(jwt.getSubject());
+        return userRepo.findById(id);
     }
 }

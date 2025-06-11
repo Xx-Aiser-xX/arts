@@ -2,15 +2,14 @@ package org.example.arts.controllers.impl;
 
 import org.example.arts.dtos.ArtCardDto;
 import org.example.arts.dtos.ArtDto;
-import org.example.arts.dtos.TagDto;
 import org.example.arts.dtos.create.ArtCreateDto;
+import org.example.arts.dtos.update.ArtUpdateDto;
 import org.example.arts.services.ArtService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/arts")
@@ -53,17 +52,15 @@ public class ArtController {
         return ResponseEntity.ok(like);
     }
 
-    @PostMapping()
-    public ResponseEntity<ArtCreateDto> createArt(
-            @RequestBody ArtCreateDto artCreateDto){
-        ArtCreateDto art = artService.create(artCreateDto);
-        return ResponseEntity.ok(art);
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ArtCreateDto> createArt(@ModelAttribute ArtCreateDto artCreateDto) {
+        ArtCreateDto createdArt = artService.create(artCreateDto);
+        return ResponseEntity.ok(createdArt);
     }
 
     @PutMapping()
-    public ResponseEntity<ArtDto> updateArt(@RequestBody ArtDto artDto,
-                                            @RequestBody List<TagDto> tagDto){
-        ArtDto art = artService.save(artDto, tagDto);
+    public ResponseEntity<ArtDto> updateArt(@ModelAttribute ArtUpdateDto artDto){
+        ArtDto art = artService.save(artDto);
         return ResponseEntity.ok(art);
     }
 
@@ -77,7 +74,7 @@ public class ArtController {
 
     @GetMapping("/feed")
     public ResponseEntity<Page<ArtCardDto>> getFeed(
-            @RequestParam(defaultValue = "trending") String type,
+            @RequestParam(defaultValue = "latest") String type,
             @RequestParam int page,
             @RequestParam int size) {
 
@@ -93,7 +90,4 @@ public class ArtController {
         Page<ArtCardDto> results = artService.searchArtsByName(query, page, size);
         return ResponseEntity.ok(results);
     }
-
-
-
 }
