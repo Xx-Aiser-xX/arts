@@ -11,6 +11,7 @@ import org.example.arts.entities.Art;
 import org.example.arts.entities.Comment;
 import org.example.arts.entities.Tag;
 import org.example.arts.entities.User;
+import org.example.arts.exceptions.AuthorizationException;
 import org.example.arts.exceptions.DataDeletedException;
 import org.example.arts.repo.CommentRepository;
 import org.example.arts.repo.UserRepository;
@@ -50,7 +51,9 @@ public class CommentService {
     @Transactional
     public CommentCreateDto create(CommentCreateDto createDto){
         Comment com = modelMapper.map(createDto, Comment.class);
-        com.setAuthor(getCurrentUser());
+        User user = getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        com.setAuthor(user);
         commentRepo.create(com);
         return modelMapper.map(com, CommentCreateDto.class);
     }
@@ -81,19 +84,31 @@ public class CommentService {
         return new PageImpl<>(commentsDto, PageRequest.of(page - 1, size), comments.size());
     }
 
-    private Jwt getJwt(){
-        return (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    private Jwt getJwt() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt jwt) {
+            return jwt;
+        }
+        return null;
     }
 
-    private UUID getCurrentUserId(){
+    private Optional<UUID> getCurrentUserId(){
         Jwt jwt = getJwt();
-        return UUID.fromString(jwt.getSubject());
+        if (jwt == null)
+            return Optional.empty();
+        return Optional.of(UUID.fromString(jwt.getSubject()));
     }
 
-    private User getCurrentUser(){
-        UUID id = UUID.fromString(getJwt().getSubject());
-        Optional<User> user = userRepo.findById(id);
-        return user.get();
+    private Optional<User> getCurrentUser(){
+        Jwt jwt = getJwt();
+        if (jwt == null)
+            return Optional.empty();
+        UUID id = UUID.fromString(jwt.getSubject());
+        return userRepo.findById(id);
     }
 }
 

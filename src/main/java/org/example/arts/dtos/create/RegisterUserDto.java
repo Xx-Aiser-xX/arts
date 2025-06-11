@@ -1,23 +1,35 @@
 package org.example.arts.dtos.create;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.UUID;
 
 public class RegisterUserDto {
     private UUID id;
     private String userName;
-    private String photoUrl;
+    private MultipartFile avatarFile;
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
     public String getUserName() {
         return userName;
     }
+
     public void setUserName(String userName) {
         this.userName = userName;
     }
 
-    public String getPhotoUrl() {
-        return photoUrl;
+    public MultipartFile getAvatarFile() {
+        return avatarFile;
     }
-    public void setPhotoUrl(String photoUrl) {
-        this.photoUrl = photoUrl;
+
+    public void setAvatarFile(MultipartFile avatarFile) {
+        this.avatarFile = avatarFile;
     }
 }

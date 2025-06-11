@@ -2,11 +2,14 @@ package org.example.arts.services;
 
 import org.example.arts.dtos.*;
 import org.example.arts.dtos.create.RegisterUserDto;
+import org.example.arts.dtos.update.UserUpdateDto;
 import org.example.arts.entities.*;
+import org.example.arts.exceptions.AuthorizationException;
 import org.example.arts.exceptions.IncorrectDataException;
 import org.example.arts.repo.*;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -14,10 +17,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.multipart.MultipartFile;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
+import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class UserService {
@@ -28,51 +35,73 @@ public class UserService {
     private final SubRepository subRepo;
     private final ArtRepository artRepo;
     private final ModelMapper modelMapper;
+    private final S3Client s3Client;
+
+    @Value("${aws.s3.bucket-name}")
+    private String bucketName;
+
+    @Value("${s3.avatars.prefix}")
+    private String avatarsPrefix;
 
     @Autowired
-    public UserService(UserRepository userRepo, SocialNetworkRepository socialNetworkRepo, UserPreferencesRepository userPreferencesRepo, SubRepository subRepo, ArtRepository artRepo, ModelMapper modelMapper) {
+    public UserService(UserRepository userRepo, SocialNetworkRepository socialNetworkRepo, UserPreferencesRepository userPreferencesRepo, SubRepository subRepo, ArtRepository artRepo, ModelMapper modelMapper, S3Client s3Client) {
         this.userRepo = userRepo;
         this.socialNetworkRepo = socialNetworkRepo;
         this.userPreferencesRepo = userPreferencesRepo;
         this.subRepo = subRepo;
         this.artRepo = artRepo;
         this.modelMapper = modelMapper;
+        this.s3Client = s3Client;
     }
 
     @Transactional
     public UserDto registerUser(RegisterUserDto dto) {
-        UUID id = getCurrentUserId();
-        if (userRepo.findById(id).isPresent()) {
-            throw new IncorrectDataException("User with id " + id + " already exists");
-        }
+        UUID id = getCurrentUserId()
+                .orElseThrow(() -> new AuthorizationException("Выйдете из аккаунта"));
+
         if (userRepo.findByUserName(dto.getUserName(), false).isPresent()) {
-            throw new IncorrectDataException("Username " + dto.getUserName() + " is already taken");
+            throw new IncorrectDataException("Пользователь  с ником: " + dto.getUserName() + " уже существует");
         }
-        User user = new User(id, dto.getUserName(), dto.getPhotoUrl());
+        String s3Url = null;
+        if (dto.getAvatarFile() != null && !dto.getAvatarFile().isEmpty()) {
+            try {
+                String fileName = avatarsPrefix + dto.getId().toString() + "_" + UUID.randomUUID().toString() + "_" + dto.getAvatarFile().getOriginalFilename();
+                s3Url = uploadFileToS3(dto.getAvatarFile(), fileName);
+            } catch (IOException | S3Exception e) {
+                throw new RuntimeException("Ошибка при загрузке аватара в S3", e);
+            }
+        }
+        User user = new User(id, dto.getUserName(), s3Url);
         UserDto userDto = modelMapper.map(user, UserDto.class);
         userPreferencesRepo.create(new UserPreferences(user));
         return userDto;
     }
 
     @Transactional
-    public UserDto updateUser(UpdateUserDto dto) {
-        UUID id = getCurrentUserId();
+    public UserDto updateUser(UserUpdateDto dto) {
+        UUID id = getCurrentUserId()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
 
         User user = userRepo.findById(id)
-                .orElseThrow(() -> new IncorrectDataException("User not found"));
+                .orElseThrow(() -> new AuthorizationException("Пользователь не найден"));
 
         if (dto.getUserName() != null && !dto.getUserName().equals(user.getUserName())) {
             if (userRepo.findByUserName(dto.getUserName(), false).isPresent()) {
-                throw new IncorrectDataException("Username " + dto.getUserName() + " is already taken");
+                throw new IncorrectDataException("Пользователь  с ником: " + dto.getUserName() + " уже существует");
             }
             user.setUserName(dto.getUserName());
         }
-        if (dto.getPhotoUrl() != null) {
-            user.setPhotoUrl(dto.getPhotoUrl());
+
+        if (dto.getAvatarFile() != null && !dto.getAvatarFile().isEmpty()) {
+            try {
+                String fileName = avatarsPrefix + id.toString() + "_" + UUID.randomUUID().toString() + "_" + dto.getAvatarFile().getOriginalFilename();
+                String s3Url = uploadFileToS3(dto.getAvatarFile(), fileName);
+                user.setPhotoUrl(s3Url);
+            } catch (IOException | S3Exception e) {
+                throw new RuntimeException("Ошибка при обновлении аватара в S3", e);
+            }
         }
-        if (dto.getDescription() != null) {
-            user.setDescription(dto.getDescription());
-        }
+        user.setDescription(dto.getDescription());
 
         if (!dto.getSocialNetwork().isEmpty()){
             for (SocialNetworkDto sn : dto.getSocialNetwork()){
@@ -85,6 +114,16 @@ public class UserService {
         return modelMapper.map(userRepo.save(user), UserDto.class);
     }
 
+    private String uploadFileToS3(MultipartFile file, String fileName) throws IOException, S3Exception {
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .contentType(file.getContentType())
+                .build();
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+        return s3Client.utilities().getUrl(b -> b.bucket(bucketName).key(fileName)).toExternalForm();
+    }
+
     @Transactional
     public void deleted(RegisterUserDto userDto){
         User user = modelMapper.map(userDto, User.class);
@@ -93,11 +132,15 @@ public class UserService {
     }
 
     public UserDto getCurrentUserDto() {
-        return modelMapper.map(getCurrentUser(), UserDto.class);
+        User user = getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        return modelMapper.map(user, UserDto.class);
     }
 
     public UserMinDto getCurrentUserMinDto() {
-        return modelMapper.map(getCurrentUser(), UserMinDto.class);
+        User user = getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        return modelMapper.map(user, UserMinDto.class);
     }
 
     public List<SocialNetworkDto> getSocialNetworkUser(String id) {
@@ -121,9 +164,11 @@ public class UserService {
     @Transactional
     public SubscribeDto subscribe(String idAuthor){
         UUID uuid = UUID.fromString(idAuthor);
-        User user = getCurrentUser();
-        User author = userRepo.findById(uuid).get();
-        Sub sub = subRepo.signed(uuid, author.getId());
+        User user = getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        User author = userRepo.findById(uuid)
+                .orElseThrow(() -> new AuthorizationException("Автор не найден"));;
+        Sub sub = subRepo.signed(user.getId(), author.getId());
         if (!user.equals(author)) {
             if (sub == null) {
                 subRepo.create(new Sub(user, author));
@@ -139,11 +184,14 @@ public class UserService {
         return null;
     }
 
-    public boolean isSubscribe(String idAuthor){
-        UUID uuid = UUID.fromString(idAuthor);
-        User author = userRepo.findById(uuid).get();
-        Sub sub = subRepo.signed(uuid, author.getId());
-        return (sub == null || sub.isDeleted());
+    public boolean isSubscribe(String authorId){
+        UUID uuid = UUID.fromString(authorId);
+        User user = getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        User author = userRepo.findById(uuid)
+                .orElseThrow(() -> new AuthorizationException("Автор не найден"));
+        Sub sub = subRepo.signed(user.getId(), author.getId());
+        return (sub != null && !sub.isDeleted());
     }
 
     private User getUserById(String id){
@@ -158,7 +206,8 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Page<SubWithArtsDto> getSubscriptionsWithArts(int artsPerAuthor, Integer page, Integer size) {
-        UUID userUUID = getCurrentUserId();
+        UUID userUUID = getCurrentUserId()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         List<Sub> subs = subRepo.findBySubscriberId(userUUID, false);
         subs.sort(Comparator.comparing(Sub::getSubscriptionDate).reversed());
 
@@ -184,7 +233,8 @@ public class UserService {
     }
 
     public List<UserMinDto> getRecentSubscriptions(int limit) {
-        UUID userId = getCurrentUserId();
+        UUID userId = getCurrentUserId()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         List<Sub> allSubs = subRepo.findBySubscriber(userId, false);
 
         return allSubs.stream()
@@ -195,18 +245,30 @@ public class UserService {
     }
 
 
-    private Jwt getJwt(){
-        return (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    private Jwt getJwt() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Jwt jwt) {
+            return jwt;
+        }
+        return null;
     }
 
-    private UUID getCurrentUserId(){
+    private Optional<UUID> getCurrentUserId(){
         Jwt jwt = getJwt();
-        return UUID.fromString(jwt.getSubject());
+        if (jwt == null)
+            return Optional.empty();
+        return Optional.of(UUID.fromString(jwt.getSubject()));
     }
 
-    private User getCurrentUser(){
-        UUID id = UUID.fromString(getJwt().getSubject());
-        Optional<User> user = userRepo.findById(id);
-        return user.get();
+    private Optional<User> getCurrentUser(){
+        Jwt jwt = getJwt();
+        if (jwt == null)
+            return Optional.empty();
+        UUID id = UUID.fromString(jwt.getSubject());
+        return userRepo.findById(id);
     }
 }

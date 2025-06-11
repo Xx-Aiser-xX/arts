@@ -1,10 +1,13 @@
-package org.example.arts.dtos;
+package org.example.arts.dtos.update;
+
+import org.example.arts.dtos.SocialNetworkDto;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-public class UpdateUserDto {
+public class UserUpdateDto {
     private String userName;
-    private String photoUrl;
+    private MultipartFile avatarFile;
     private String description;
     private List<SocialNetworkDto> socialNetwork;
 
@@ -14,12 +17,15 @@ public class UpdateUserDto {
     public void setUserName(String userName) {
         this.userName = userName;
     }
-    public String getPhotoUrl() {
-        return photoUrl;
+
+    public MultipartFile getAvatarFile() {
+        return avatarFile;
     }
-    public void setPhotoUrl(String photoUrl) {
-        this.photoUrl = photoUrl;
+
+    public void setAvatarFile(MultipartFile avatarFile) {
+        this.avatarFile = avatarFile;
     }
+
     public String getDescription() {
         return description;
     }

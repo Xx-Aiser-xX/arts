@@ -1,7 +1,8 @@
 package org.example.arts.controllers.impl;
 
 import org.example.arts.dtos.*;
-import org.example.arts.entities.Sub;
+import org.example.arts.dtos.create.RegisterUserDto;
+import org.example.arts.dtos.update.UserUpdateDto;
 import org.example.arts.services.ArtService;
 import org.example.arts.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,9 +25,16 @@ public class UserController {
         this.artService = artService;
     }
 
+    @PostMapping("/register")
+    public ResponseEntity<UserDto> register(
+            @ModelAttribute RegisterUserDto request) {
+        UserDto user = userService.registerUser(request);
+        return ResponseEntity.ok(user);
+    }
+
     @PutMapping("/me")
     public ResponseEntity<UserDto> updateProfile(
-            @RequestBody UpdateUserDto request) {
+            @ModelAttribute UserUpdateDto request) {
         UserDto user = userService.updateUser(request);
         return ResponseEntity.ok(user);
     }

@@ -44,6 +44,9 @@ public class ArtService {
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
 
+    @Value("${s3.arts.prefix}")
+    private String artsPrefix;
+
     @Autowired
     public ArtService(ArtRepository artRepo, UserRepository userRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagService tagService, ModelMapper modelMapper, S3Client s3Client) {
         this.artRepo = artRepo;
@@ -69,15 +72,14 @@ public class ArtService {
     @Transactional
     public ArtCreateDto create(ArtCreateDto artDto){
         Art art = modelMapper.map(artDto, Art.class);
-        Optional<User> user = getCurrentUser();
-        if (user.isEmpty())
-            throw new AuthorizationException();
-        art.setAuthor(user.get());
+        User user = getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизован"));
+        art.setAuthor(user);
         art.setPublicationTime(LocalDateTime.now());
 
         if (artDto.getImageFile() != null && !artDto.getImageFile().isEmpty()) {
             try {
-                String fileName = UUID.randomUUID().toString() + "_" + artDto.getImageFile().getOriginalFilename();
+                String fileName = artsPrefix + UUID.randomUUID().toString() + "_" + artDto.getImageFile().getOriginalFilename();
                 String s3Url = uploadFileToS3(artDto.getImageFile(), fileName);
                 art.setImageUrl(s3Url);
             } catch (IOException | S3Exception e) {
@@ -99,7 +101,7 @@ public class ArtService {
         Art art = modelMapper.map(arts, Art.class);
         if (arts.getImageFile() != null && !arts.getImageFile().isEmpty()) {
             try {
-                String fileName = UUID.randomUUID().toString() + "_" + arts.getImageFile().getOriginalFilename();
+                String fileName = artsPrefix + UUID.randomUUID().toString() + "_" + arts.getImageFile().getOriginalFilename();
                 String s3Url = uploadFileToS3(arts.getImageFile(), fileName);
                 art.setImageUrl(s3Url);
             } catch (IOException | S3Exception e) {
@@ -170,7 +172,7 @@ public class ArtService {
         Art art = artRepo.findById(uuid).get();
         Optional<User> user = getCurrentUser();
         if (user.isEmpty())
-            throw new AuthorizationException();
+            throw new AuthorizationException("Пользователь не авторизован");
         Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
         if (!interaction.isLike()) {
             interaction.setLike(true);
@@ -193,7 +195,7 @@ public class ArtService {
     public Page<ArtCardDto> getLikedArtsByCurrentUser(int page, int size) {
         Optional<UUID> userId = getCurrentUserId();
         if (userId.isEmpty())
-            throw new AuthorizationException();
+            throw new AuthorizationException("Пользователь не авторизован");
         List<Interaction> likes = interactionRepo.findLikedByUser(userId.get(), true, false);
 
         List<ArtCardDto> likedArts = likes.stream()
@@ -262,7 +264,7 @@ public class ArtService {
     private Page<ArtCardDto> getRecommendedArts(int page, int size) {
         Optional<UUID> userId = getCurrentUserId();
         if (userId.isEmpty())
-            throw new AuthorizationException();
+            throw new AuthorizationException("Пользователь не авторизован");
         List<Interaction> interactions = interactionRepo.findWithArtTagsByUserId(userId.get(), false);
 
         Set<UUID> tagIds = interactions.stream()
@@ -283,7 +285,7 @@ public class ArtService {
     private Page<ArtCardDto> getSubscribedArts(int page, int size) {
         Optional<UUID> userId = getCurrentUserId();
         if (userId.isEmpty())
-            throw new AuthorizationException();
+            throw new AuthorizationException("Пользователь не авторизован");
         List<Sub> subs = subRepo.findSubAndUserBySubscriberId(userId.get(), false);
 
         Set<UUID> authorIds = subs.stream()
