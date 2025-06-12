@@ -1,6 +1,5 @@
 package org.example.arts.services;
 
-import jakarta.transaction.Transactional;
 import org.example.arts.dtos.ArtDto;
 import org.example.arts.dtos.CommentDto;
 import org.example.arts.dtos.PageForm;
@@ -13,6 +12,8 @@ import org.example.arts.entities.Tag;
 import org.example.arts.entities.User;
 import org.example.arts.exceptions.AuthorizationException;
 import org.example.arts.exceptions.DataDeletedException;
+import org.example.arts.exceptions.IncorrectDataException;
+import org.example.arts.repo.ArtRepository;
 import org.example.arts.repo.CommentRepository;
 import org.example.arts.repo.UserRepository;
 import org.modelmapper.ModelMapper;
@@ -22,7 +23,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -32,11 +35,13 @@ import java.util.UUID;
 public class CommentService {
     private final CommentRepository commentRepo;
     private final UserRepository userRepo;
+    private final ArtRepository artRepo;
     private final ModelMapper modelMapper;
 
-    public CommentService(CommentRepository commentRepo, UserRepository userRepo, ModelMapper modelMapper) {
+    public CommentService(CommentRepository commentRepo, UserRepository userRepo, ArtRepository artRepo, ModelMapper modelMapper) {
         this.commentRepo = commentRepo;
         this.userRepo = userRepo;
+        this.artRepo = artRepo;
         this.modelMapper = modelMapper;
     }
 
@@ -51,10 +56,14 @@ public class CommentService {
     @Transactional
     public CommentCreateDto create(CommentCreateDto createDto){
         Comment com = modelMapper.map(createDto, Comment.class);
+        Art art = artRepo.findById(UUID.fromString(createDto.getArtId()))
+                .orElseThrow(() -> new IncorrectDataException("Ошибка"));
         User user = getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         com.setAuthor(user);
-        commentRepo.create(com);
+        com.setArt(art);
+        com.setPublicationTime(LocalDateTime.now());
+        com = commentRepo.create(com);
         return modelMapper.map(com, CommentCreateDto.class);
     }
 
@@ -72,6 +81,7 @@ public class CommentService {
         commentRepo.save(com);
     }
 
+    @Transactional(readOnly = true)
     public Page<CommentDto> getCommentByArtId(String id, Integer page, Integer size){
         UUID uuid = UUID.fromString(id);
         List<Comment> comments = commentRepo.findByArtId(uuid,false);

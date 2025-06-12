@@ -1,47 +1,47 @@
 страница работы
 get подгрузка данных
-http://localhost:8081/arts/with-author/{id} арт
-http://localhost:8081/tags/art теги
-http://localhost:8081/comments/art комменты
-http://localhost:8081/users/subscribe проверка подписки
-http://localhost:8081/arts/like лайк стоит?
+http://localhost:8081/arts/with-author/{id} арт //работает
+http://localhost:8081/tags/art теги //работает
+http://localhost:8081/comments/art комменты //работает
+http://localhost:8081/users/subscribe проверка подписки //работает
+http://localhost:8081/arts/like лайк стоит? //работает
 
 post
-http://localhost:8081/users/subscribe подписаться/отписаться
-http://localhost:8081/arts/like поставить лайк
-http://localhost:8081/comments/art добавить коммент
+http://localhost:8081/users/subscribe подписаться/отписаться  //работает
+http://localhost:8081/arts/like поставить лайк //работает
+http://localhost:8081/comments/art добавить коммент //работает
 ____________________________________________________________________________________________________
 Страница автора
 get подгрузка данных
-http://localhost:8081/users
-http://localhost:8081/users/subscribe проверка подписки
-http://localhost:8081/users/arts список карточек артов автора
-http://localhost:8081/users/social-networks ссылки на соц сети
+http://localhost:8081/users //работает
+http://localhost:8081/users/subscribe проверка подписки //работает
+http://localhost:8081/users/arts список карточек артов автора  //работает
+http://localhost:8081/users/social-networks ссылки на соц сети //работает
 
 post
-http://localhost:8081/users/subscribe подписаться/отписаться
+http://localhost:8081/users/subscribe подписаться/отписаться //работает
 ____________________________________________________________________________________________________
 подписки пользователя
 get подгрузка данных
-http://localhost:8081/users/subs-with-arts авторы и их арты
-http://localhost:8081/users/subscribe проверка подписки
+http://localhost:8081/users/subs-with-arts авторы и их арты //работает
+http://localhost:8081/users/subscribe проверка подписки //работает
 
 post
-http://localhost:8081/users/subscribe подписаться/отписаться
+http://localhost:8081/users/subscribe подписаться/отписаться //работает
 ____________________________________________________________________________________________________
 страница лайков
 get подгрузка данных
-http://localhost:8081/arts/likes лайкнутые арты
+http://localhost:8081/arts/likes лайкнутые арты //работает
 ____________________________________________________________________________________________________
 главная станица
 get подгрузка данных
-http://localhost:8081/arts/feed список артов в 4 разных вариках
+http://localhost:8081/arts/feed список артов в 4 разных вариках //работает
 ____________________________________________________
 общие элементы
 get подгрузка данных
-http://localhost:8081/users/get-recent-sub список ласт подписок для боковой панели
-http://localhost:8081/users/me/min инфа о пользователе для иконки в хедере
-http://localhost:8081/arts/search поиск артов по названию(для поисковой строки)
+http://localhost:8081/users/get-recent-sub список ласт подписок для боковой панели //работает(не уверен что до конца)
+http://localhost:8081/users/me/min инфа о пользователе для иконки в хедере //работает
+http://localhost:8081/arts/search поиск артов по названию(для поисковой строки) //работает
 ____________________________________________________
 Редактировать пользвоаетля
 put запрос
@@ -57,7 +57,7 @@ http://localhost:8081/arts
 ____________________________________________________
 регистрация
 post запрос
-http://localhost:8081/keycloak/register получаешь id
-http://localhost:8081/users/register передаёшь id и ник
-http://localhost:8080/realms/arts-realm/protocol/openid-connect/token получаешь токен и вкаладываешь куда надо(ака логин)
+http://localhost:8081/keycloak/register получаешь id //работает
+http://localhost:8081/users/register передаёшь id и ник //работает
+http://localhost:8080/realms/arts-realm/protocol/openid-connect/token получаешь токен и вкаладываешь куда надо(ака логин) //работает
 

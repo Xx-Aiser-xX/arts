@@ -106,7 +106,7 @@ public class UserController {
 
     @GetMapping("/get-recent-sub")
     public ResponseEntity<List<UserMinDto>> getRecentSubscriptions(
-            @RequestParam(required = false) Integer limit) {
+            @RequestParam(defaultValue = "4", required = false) Integer limit) {
         List<UserMinDto> user = userService.getRecentSubscriptions(limit);
         return ResponseEntity.ok(user);
     }

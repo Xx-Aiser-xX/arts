@@ -1,6 +1,7 @@
 package org.example.arts.repo.impl;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -28,8 +29,7 @@ public abstract class BaseRepository<Entity> {
             em.persist(entity);
             em.flush();
             return entity;
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (NoResultException e) {
             return null;
         }
     }
@@ -73,9 +73,8 @@ public abstract class BaseRepository<Entity> {
         try {
             return Optional.of(em.find(entityClass, id));
         } catch (Exception e) {
-            e.printStackTrace();
+            return Optional.empty();
         }
-        return Optional.empty();
     }
 
     public Entity save(Entity entity) {

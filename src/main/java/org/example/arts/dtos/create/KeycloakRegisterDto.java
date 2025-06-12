@@ -1,5 +1,5 @@
 package org.example.arts.dtos.create;
-//d49378cc-5015-4f18-920f-f34c6d400a66
+
 public class KeycloakRegisterDto {
     private String username;
     private String email;

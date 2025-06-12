@@ -24,8 +24,8 @@ public class SubRepositoryImpl extends BaseRepository<Sub> implements SubReposit
             return em.createQuery(
                             "SELECT s " +
                                     "FROM Sub s " +
-                                    "WHERE s.subscriber =:idUser " +
-                                    "AND s.target = :idAuthor", Sub.class)
+                                    "WHERE s.subscriber.id =:idUser " +
+                                    "AND s.target.id = :idAuthor", Sub.class)
                     .setParameter("idUser", idUser)
                     .setParameter("idAuthor", idAuthor)
                     .getSingleResult();

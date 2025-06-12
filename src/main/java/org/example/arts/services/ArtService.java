@@ -174,7 +174,7 @@ public class ArtService {
         if (user.isEmpty())
             throw new AuthorizationException("Пользователь не авторизован");
         Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
-        if (!interaction.isLike()) {
+        if (interaction != null && !interaction.isLike()) {
             interaction.setLike(true);
             interaction.setLikedAt(LocalDateTime.now());
             interactionRepo.save(interaction);
@@ -182,7 +182,7 @@ public class ArtService {
             artRepo.save(art);
             return true;
         }
-        else if (interaction.getLikedAt() != null){
+        else if (interaction != null && interaction.getLikedAt() != null){
             interaction.setLike(false);
             interactionRepo.save(interaction);
             art.setCountLikes(art.getCountLikes() - 1);
@@ -215,7 +215,7 @@ public class ArtService {
         if (user.isEmpty())
             return false;
         Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
-        return interaction.isLike();
+        return interaction != null && interaction.isLike();
     }
 
     public Page<ArtCardDto> getFeed(String type, int page, int size) {

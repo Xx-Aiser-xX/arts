@@ -22,14 +22,6 @@ public class ArtController {
         this.artService = artService;
     }
 
-    @GetMapping("/art")
-    public ResponseEntity<ArtDto> getArtById(
-            @RequestParam(required = false) String id){
-        ArtDto art = artService.getArtById(id);
-        artService.viewArt(id);
-        return ResponseEntity.ok(art);
-    }
-
     @GetMapping("/with-author")
     public ResponseEntity<ArtDto> findArtAndAuthorById(
             @RequestParam(required = false) String id){
@@ -75,8 +67,8 @@ public class ArtController {
     @GetMapping("/feed")
     public ResponseEntity<Page<ArtCardDto>> getFeed(
             @RequestParam(defaultValue = "latest") String type,
-            @RequestParam int page,
-            @RequestParam int size) {
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "12") int size) {
 
         Page<ArtCardDto> feed = artService.getFeed(type, page, size);
         return ResponseEntity.ok(feed);
@@ -84,9 +76,9 @@ public class ArtController {
 
     @GetMapping("/search")
     public ResponseEntity<Page<ArtCardDto>> searchArts(
-            @RequestParam String query,
-            @RequestParam int page,
-            @RequestParam int size) {
+            @RequestParam(defaultValue = "") String query,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "12") int size) {
         Page<ArtCardDto> results = artService.searchArtsByName(query, page, size);
         return ResponseEntity.ok(results);
     }

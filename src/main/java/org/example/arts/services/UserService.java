@@ -156,6 +156,7 @@ public class UserService {
         UUID uuid = UUID.fromString(idAuthor);
         User user = getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        System.out.println("!!!!!!!!!!");
         User author = userRepo.findById(uuid)
                 .orElseThrow(() -> new AuthorizationException("Автор не найден"));;
         Sub sub = subRepo.signed(user.getId(), author.getId());
