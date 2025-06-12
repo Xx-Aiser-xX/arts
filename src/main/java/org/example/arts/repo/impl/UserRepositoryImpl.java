@@ -1,6 +1,7 @@
 package org.example.arts.repo.impl;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
 import org.example.arts.entities.User;
 import org.example.arts.repo.UserRepository;
@@ -18,13 +19,18 @@ public class UserRepositoryImpl  extends BaseRepository<User> implements UserRep
     }
 
     public Optional<User> findByUserName(String userName, boolean deleted){
-        return Optional.ofNullable(em.createQuery(
-                        "SELECT u " +
-                                "FROM User u " +
-                                "WHERE u.userName = :userName " +
-                                "AND s.deleted = :deleted ", User.class)
-                .setParameter("userName", userName)
-                .setParameter("deleted", deleted)
-                .getSingleResult());
+        try {
+            return Optional.ofNullable(em.createQuery(
+                            "SELECT u " +
+                                    "FROM User u " +
+                                    "WHERE u.userName = :userName " +
+                                    "AND u.deleted = :deleted ", User.class)
+                    .setParameter("userName", userName)
+                    .setParameter("deleted", deleted)
+                    .getSingleResult());
+        }
+        catch (NoResultException e){
+            return Optional.empty();
+        }
     }
 }

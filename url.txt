@@ -54,3 +54,10 @@ ____________________________________________________
 Редактирование работы
 put запрос
 http://localhost:8081/arts
+____________________________________________________
+регистрация
+post запрос
+http://localhost:8081/keycloak/register получаешь id
+http://localhost:8081/users/register передаёшь id и ник
+http://localhost:8080/realms/arts-realm/protocol/openid-connect/token получаешь токен и вкаладываешь куда надо(ака логин)
+

@@ -27,10 +27,10 @@ public class User{
 
     protected User() {}
 
-    public User(UUID id, String userName, String photoUrl) {
+    public User(UUID id, String userName) {
         setId(id);
         setUserName(userName);
-        setPhotoUrl(photoUrl);
+        setPhotoUrl(null);
         setCountJobs(0);
         setCountSubscriptions(0);
         setCountSubscribers(0);

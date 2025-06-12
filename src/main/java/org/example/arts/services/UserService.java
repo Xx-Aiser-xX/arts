@@ -56,25 +56,15 @@ public class UserService {
 
     @Transactional
     public UserDto registerUser(RegisterUserDto dto) {
-        UUID id = getCurrentUserId()
-                .orElseThrow(() -> new AuthorizationException("Выйдете из аккаунта"));
 
         if (userRepo.findByUserName(dto.getUserName(), false).isPresent()) {
             throw new IncorrectDataException("Пользователь  с ником: " + dto.getUserName() + " уже существует");
         }
-        String s3Url = null;
-        if (dto.getAvatarFile() != null && !dto.getAvatarFile().isEmpty()) {
-            try {
-                String fileName = avatarsPrefix + dto.getId().toString() + "_" + UUID.randomUUID().toString() + "_" + dto.getAvatarFile().getOriginalFilename();
-                s3Url = uploadFileToS3(dto.getAvatarFile(), fileName);
-            } catch (IOException | S3Exception e) {
-                throw new RuntimeException("Ошибка при загрузке аватара в S3", e);
-            }
-        }
-        User user = new User(id, dto.getUserName(), s3Url);
-        UserDto userDto = modelMapper.map(user, UserDto.class);
+        User user = modelMapper.map(dto, User.class);
+
+        userRepo.create(user);
         userPreferencesRepo.create(new UserPreferences(user));
-        return userDto;
+        return modelMapper.map(user, UserDto.class);
     }
 
     @Transactional

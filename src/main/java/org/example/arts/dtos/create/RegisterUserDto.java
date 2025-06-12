@@ -7,7 +7,6 @@ import java.util.UUID;
 public class RegisterUserDto {
     private UUID id;
     private String userName;
-    private MultipartFile avatarFile;
 
     public UUID getId() {
         return id;
@@ -23,13 +22,5 @@ public class RegisterUserDto {
 
     public void setUserName(String userName) {
         this.userName = userName;
-    }
-
-    public MultipartFile getAvatarFile() {
-        return avatarFile;
-    }
-
-    public void setAvatarFile(MultipartFile avatarFile) {
-        this.avatarFile = avatarFile;
     }
 }
