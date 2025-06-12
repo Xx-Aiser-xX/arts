@@ -6,7 +6,9 @@ import org.example.arts.exceptions.IncorrectDataException;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "comments")
+@Table(name = "comments", indexes = {
+        @Index(name = "idx_comments_art_deleted", columnList = "art_id, is_deleted")
+})
 public class Comment extends BaseEntityId {
     private Art art;
     private User author;

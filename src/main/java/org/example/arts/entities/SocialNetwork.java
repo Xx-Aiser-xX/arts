@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import org.example.arts.exceptions.IncorrectDataException;
 
 @Entity
-@Table(name = "social_networks")
+@Table(name = "social_networks", indexes = {
+        @Index(name = "idx_social_networks_deleted_user", columnList = "is_deleted, user_id")
+})
 public class SocialNetwork extends BaseEntityId {
     private User user;
     private String link;

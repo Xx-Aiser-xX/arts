@@ -6,7 +6,9 @@ import org.example.arts.exceptions.IncorrectDataException;
 import java.util.Set;
 
 @Entity
-@Table(name = "tags")
+@Table(name = "tags", indexes = {
+        @Index(name = "idx_tags_name_deleted", columnList = "name, is_deleted")
+})
 public class Tag extends BaseEntityId {
     private String name;
     private boolean deleted;

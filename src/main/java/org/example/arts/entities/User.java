@@ -7,7 +7,9 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+        @Index(name = "idx_users_deleted_username", columnList = "is_deleted, user_name")
+})
 public class User{
     private UUID id;
     private String userName;

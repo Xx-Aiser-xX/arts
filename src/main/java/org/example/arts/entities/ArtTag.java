@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import org.example.arts.exceptions.IncorrectDataException;
 
 @Entity
-@Table(name = "art_tags")
+@Table(name = "art_tags", indexes = {
+        @Index(name = "idx_art_tags_deleted_art", columnList = "is_deleted, art_id"),
+        @Index(name = "idx_art_tags_deleted_tag", columnList = "is_deleted, tag_id")
+})
 public class ArtTag extends BaseEntityId {
     private Art art;
     private Tag tag;

@@ -7,7 +7,10 @@ import java.time.LocalDateTime;
 import java.util.Set;
 
 @Entity
-@Table(name = "arts")
+@Table(name = "arts", indexes = {
+        @Index(name = "idx_arts_deleted_user_id", columnList = "is_deleted, user_id"),
+        @Index(name = "idx_arts_deleted_publication_time", columnList = "is_deleted, publication_time")
+})
 public class Art extends BaseEntityId {
     private String name;
     private String description;

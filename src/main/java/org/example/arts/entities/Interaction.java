@@ -6,7 +6,10 @@ import org.example.arts.exceptions.IncorrectDataException;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "interactions")
+@Table(name = "interactions", indexes = {
+        @Index(name = "idx_interactions_deleted_user_art", columnList = "is_deleted, user_id, art_id"),
+        @Index(name = "idx_interactions_deleted_like_likedAt", columnList = "is_deleted, is_like, liked_at")
+})
 public class Interaction extends BaseEntityId {
     private User user;
     private Art art;

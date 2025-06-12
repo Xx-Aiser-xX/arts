@@ -6,7 +6,9 @@ import org.example.arts.exceptions.IncorrectDataException;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "subscriptions")
+@Table(name = "subscriptions", indexes = {
+        @Index(name = "idx_subscriptions_subscriber_deleted", columnList = " subscriber_id, is_deleted")
+})
 public class Sub extends BaseEntityId {
     private User subscriber;
     private User target;
