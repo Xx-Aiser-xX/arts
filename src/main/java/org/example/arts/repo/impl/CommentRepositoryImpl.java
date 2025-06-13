@@ -22,6 +22,7 @@ public class CommentRepositoryImpl extends BaseRepository<Comment> implements Co
         return em.createQuery(
                 "SELECT c " +
                         "FROM Comment c " +
+                        "JOIN FETCH c.author a " +
                         "WHERE c.art.id = :id " +
                         "AND c.deleted = :deleted ", Comment.class)
                 .setParameter("id", id)

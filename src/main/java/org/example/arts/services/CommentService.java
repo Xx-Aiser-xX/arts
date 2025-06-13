@@ -1,18 +1,13 @@
 package org.example.arts.services;
 
-import org.example.arts.dtos.ArtDto;
+import jakarta.persistence.EntityNotFoundException;
 import org.example.arts.dtos.CommentDto;
-import org.example.arts.dtos.PageForm;
-import org.example.arts.dtos.TagDto;
-import org.example.arts.dtos.create.ArtCreateDto;
 import org.example.arts.dtos.create.CommentCreateDto;
 import org.example.arts.entities.Art;
 import org.example.arts.entities.Comment;
-import org.example.arts.entities.Tag;
 import org.example.arts.entities.User;
 import org.example.arts.exceptions.AuthorizationException;
 import org.example.arts.exceptions.DataDeletedException;
-import org.example.arts.exceptions.IncorrectDataException;
 import org.example.arts.repo.ArtRepository;
 import org.example.arts.repo.CommentRepository;
 import org.example.arts.repo.UserRepository;
@@ -47,7 +42,8 @@ public class CommentService {
 
     public CommentDto getCommentById(String id){
         UUID uuid = UUID.fromString(id);
-        Comment com = commentRepo.findById(uuid).get();
+        Comment com = commentRepo.findById(uuid)
+                .orElseThrow(() -> new EntityNotFoundException("Комментарий не найден"));
         if (com.isDeleted())
             throw new DataDeletedException("Коментарий " + com.getAuthor().getUserName() + "от " + com.getPublicationTime() + " удалён");
         return modelMapper.map(com, CommentDto.class);
@@ -57,7 +53,7 @@ public class CommentService {
     public CommentCreateDto create(CommentCreateDto createDto){
         Comment com = modelMapper.map(createDto, Comment.class);
         Art art = artRepo.findById(UUID.fromString(createDto.getArtId()))
-                .orElseThrow(() -> new IncorrectDataException("Ошибка"));
+                .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
         User user = getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         com.setAuthor(user);
@@ -69,14 +65,19 @@ public class CommentService {
 
     @Transactional
     public CommentDto save(CommentDto commentDto){
-        Comment com = modelMapper.map(commentDto, Comment.class);
+        UUID commentUuid = UUID.fromString(commentDto.getId());
+        Comment com = commentRepo.findById(commentUuid)
+                .orElseThrow(() -> new EntityNotFoundException("Комментарий не найден"));
+        modelMapper.map(commentDto, com);
         commentRepo.save(com);
         return modelMapper.map(com, CommentDto.class);
     }
 
     @Transactional
-    public void deleted(CommentDto commentDto){
-        Comment com = modelMapper.map(commentDto, Comment.class);
+    public void deleted(String commentId){
+        UUID commentUuid = UUID.fromString(commentId);
+        Comment com = commentRepo.findById(commentUuid)
+                .orElseThrow(() -> new EntityNotFoundException("Комментарий не найден"));
         com.setDeleted(true);
         commentRepo.save(com);
     }

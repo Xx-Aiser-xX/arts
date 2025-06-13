@@ -17,7 +17,7 @@ public interface ArtRepository {
     Art save(Art entity);
 
     List<Art> findByAuthor(UUID id, boolean deleted);
-    Art findArtAndAuthorById(UUID id, boolean deleted);
+    Optional<Art> findArtAndAuthorById(UUID id, boolean deleted);
     List<Art> findByTagIdsExcludingArtIds(Set<UUID> tagIds, boolean deleted);
     List<Art> findByAuthorIds(Set<UUID> authorIds, boolean deleted);
     List<Art> findRecent(LocalDateTime since, boolean deleted);

@@ -14,7 +14,7 @@ public interface SubRepository {
     Page<Sub> getPageEntities(int page, int size, boolean deleted);
     Sub save(Sub entity);
 
-    Sub signed(UUID idUser, UUID idAuthor);
+    Optional<Sub> signed(UUID idUser, UUID idAuthor);
     List<Sub> findBySubscriberId(UUID subscriberId, boolean deleted);
     List<Sub> findSubAndUserBySubscriberId(UUID subscriberId, boolean deleted);
     List<Sub> findBySubscriber(UUID subscriberId, boolean deleted);

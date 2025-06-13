@@ -1,5 +1,6 @@
 package org.example.arts.controllers.impl;
 
+import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.example.arts.dtos.*;
 import org.example.arts.dtos.create.RegisterUserDto;
 import org.example.arts.dtos.update.UserUpdateDto;
@@ -34,7 +35,7 @@ public class UserController {
 
     @PutMapping("/me")
     public ResponseEntity<UserDto> updateProfile(
-            @ModelAttribute UserUpdateDto request) {
+            @ModelAttribute UserUpdateDto request) throws FileUploadException {
         UserDto user = userService.updateUser(request);
         return ResponseEntity.ok(user);
     }
@@ -58,22 +59,22 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    @GetMapping("/me/subscriptions")
-    public ResponseEntity<Page<SubDto>> getSubscriptions(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "12") Integer size){
-        Page<SubDto> subDto = userService.getSubscriptions(page, size);
-        return ResponseEntity.ok(subDto);
-    }
+//    @GetMapping("/me/subscriptions")
+//    public ResponseEntity<Page<SubDto>> getSubscriptions(
+//            @RequestParam(defaultValue = "1") Integer page,
+//            @RequestParam(defaultValue = "12") Integer size){
+//        Page<SubDto> subDto = userService.getSubscriptions(page, size);
+//        return ResponseEntity.ok(subDto);
+//    }
 
-    @PostMapping("subscribe")
+    @PostMapping("/subscribe")
     public ResponseEntity<SubscribeDto> subscribe(
             @RequestParam(required = false) String id){
         SubscribeDto subDto = userService.subscribe(id);
         return ResponseEntity.ok(subDto);
     }
 
-    @GetMapping("subscribe")
+    @GetMapping("/subscribe")
     public ResponseEntity<Boolean> isSubscribe(
             @RequestParam(required = false) String id){
         boolean flag = userService.isSubscribe(id);

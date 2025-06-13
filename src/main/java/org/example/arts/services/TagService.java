@@ -1,14 +1,11 @@
 package org.example.arts.services;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
-import org.example.arts.dtos.ArtDto;
-import org.example.arts.dtos.CommentDto;
 import org.example.arts.dtos.TagDto;
-import org.example.arts.dtos.create.CommentCreateDto;
 import org.example.arts.dtos.create.TagCreateDto;
 import org.example.arts.entities.Art;
 import org.example.arts.entities.ArtTag;
-import org.example.arts.entities.Comment;
 import org.example.arts.entities.Tag;
 import org.example.arts.exceptions.DataDeletedException;
 import org.example.arts.repo.ArtTagRepository;
@@ -16,10 +13,8 @@ import org.example.arts.repo.TagRepository;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,9 +29,10 @@ public class TagService {
         this.modelMapper = modelMapper;
     }
 
-    public TagDto getCommentById(String id){
+    public TagDto getTagById(String id){
         UUID uuid = UUID.fromString(id);
-        Tag tag = tagRepo.findById(uuid).get();
+        Tag tag = tagRepo.findById(uuid)
+                .orElseThrow(() -> new EntityNotFoundException("Тег не найден"));
         if (tag.isDeleted())
             throw new DataDeletedException("Тег " + tag.getName() + " удалён");
         return modelMapper.map(tag, TagDto.class);
@@ -51,14 +47,19 @@ public class TagService {
 
     @Transactional
     public TagDto save(TagDto tagDto){
-        Tag tag = modelMapper.map(tagDto, Tag.class);
+        UUID uuid = UUID.fromString(tagDto.getId());
+        Tag tag = tagRepo.findById(uuid)
+                .orElseThrow(() -> new EntityNotFoundException("Тег не найден"));
+        modelMapper.map(tagDto, tag);
         tagRepo.save(tag);
         return modelMapper.map(tag, TagDto.class);
     }
 
     @Transactional
-    public void deleted(TagDto tagDto){
-        Tag tag = modelMapper.map(tagDto, Tag.class);
+    public void deleted(String tagId){
+        UUID uuid = UUID.fromString(tagId);
+        Tag tag = tagRepo.findById(uuid)
+                .orElseThrow(() -> new EntityNotFoundException("Тег не найден"));
         tag.setDeleted(true);
         tagRepo.save(tag);
     }
@@ -75,12 +76,15 @@ public class TagService {
 
         Set<String> tagsToAdd = new HashSet<>(newTagNames);
         tagsToAdd.removeAll(existingTagNames);
-
+        List<String> list = tagRepo.getNotExistsTags(tagsToAdd);
         for (TagDto td : tagDto) {
             if (tagsToAdd.contains(td.getName())) {
                 Tag tag = modelMapper.map(td, Tag.class);
+                if (list.contains(tag.getName())){
+                     tag = tagRepo.create(tag);
+                }
                 ArtTag artTag = new ArtTag(art, tag);
-                artTagRepo.save(artTag);
+                artTagRepo.create(artTag);
             }
         }
 

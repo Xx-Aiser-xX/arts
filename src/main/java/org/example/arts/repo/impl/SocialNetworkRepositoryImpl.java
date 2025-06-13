@@ -18,7 +18,7 @@ public class SocialNetworkRepositoryImpl extends BaseRepository<SocialNetwork> i
         super(SocialNetwork.class);
     }
 
-    public List<SocialNetwork> findByUserAndDeletedFalse(UUID id, boolean deleted){
+    public List<SocialNetwork> findByUserId(UUID id, boolean deleted){
         return em.createQuery(
                         "SELECT s " +
                                 "FROM SocialNetwork s " +

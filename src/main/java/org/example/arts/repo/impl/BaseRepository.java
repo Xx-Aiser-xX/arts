@@ -35,15 +35,10 @@ public abstract class BaseRepository<Entity> {
     }
 
     public List<Entity> getAll(boolean deleted) {
-        try {
-            return em.createQuery("FROM " + entityClass.getName() + " e " +
-                            "WHERE e.deleted = :isDeleted", entityClass)
-                    .setParameter("isDeleted", deleted)
-                    .getResultList();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
+        return em.createQuery("FROM " + entityClass.getName() + " e " +
+                        "WHERE e.deleted = :isDeleted", entityClass)
+                .setParameter("isDeleted", deleted)
+                .getResultList();
     }
 
     public Page<Entity> getPageEntities(int page, int size, boolean deleted) {
@@ -63,9 +58,8 @@ public abstract class BaseRepository<Entity> {
                     .getResultList();
 
             return new PageImpl<>(entities, PageRequest.of(page, size), total);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
+        } catch (NoResultException e) {
+            return Page.empty();
         }
     }
 

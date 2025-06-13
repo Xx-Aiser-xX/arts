@@ -7,9 +7,11 @@ import org.example.arts.entities.Tag;
 import org.example.arts.repo.TagRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Repository
 public class TagRepositoryImpl extends BaseRepository<Tag> implements TagRepository {

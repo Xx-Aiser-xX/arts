@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -22,21 +23,21 @@ public class InteractionRepositoryImpl extends BaseRepository<Interaction> imple
         super(Interaction.class);
     }
 
-    public Interaction findByArtIdAndUserId(UUID artId, UUID userId, boolean deleted){
+    public Optional<Interaction> findByArtIdAndUserId(UUID artId, UUID userId, boolean deleted){
         try {
-            return em.createQuery(
+            return Optional.ofNullable(em.createQuery(
                             "SELECT i " +
                                     "FROM Interaction i " +
                                     "WHERE i.user.id = :userId " +
                                     "AND i.art.id = :artId " +
-                                    "AND i.deleted = :deleted ", Interaction.class )
+                                    "AND i.deleted = :deleted ", Interaction.class)
                     .setParameter("userId", userId)
                     .setParameter("artId", artId)
                     .setParameter("deleted", deleted)
-                    .getSingleResult();
+                    .getSingleResult());
         }
         catch (NoResultException e){
-            return null;
+            return Optional.empty();
         }
     }
 

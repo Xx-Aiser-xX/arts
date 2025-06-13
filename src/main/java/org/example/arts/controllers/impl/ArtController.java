@@ -1,5 +1,6 @@
 package org.example.arts.controllers.impl;
 
+import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.example.arts.dtos.ArtCardDto;
 import org.example.arts.dtos.ArtDto;
 import org.example.arts.dtos.create.ArtCreateDto;
@@ -45,13 +46,13 @@ public class ArtController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ArtCreateDto> createArt(@ModelAttribute ArtCreateDto artCreateDto) {
+    public ResponseEntity<ArtCreateDto> createArt(@ModelAttribute ArtCreateDto artCreateDto) throws FileUploadException {
         ArtCreateDto createdArt = artService.create(artCreateDto);
         return ResponseEntity.ok(createdArt);
     }
 
     @PutMapping()
-    public ResponseEntity<ArtDto> updateArt(@ModelAttribute ArtUpdateDto artDto){
+    public ResponseEntity<ArtDto> updateArt(@ModelAttribute ArtUpdateDto artDto) throws FileUploadException {
         ArtDto art = artService.save(artDto);
         return ResponseEntity.ok(art);
     }

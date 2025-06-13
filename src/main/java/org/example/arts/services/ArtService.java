@@ -1,9 +1,11 @@
 package org.example.arts.services;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.example.arts.dtos.update.ArtUpdateDto;
 import org.example.arts.entities.*;
 import org.example.arts.exceptions.AuthorizationException;
+import org.example.arts.exceptions.IncorrectDataException;
 import org.example.arts.repo.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageImpl;
@@ -70,64 +72,63 @@ public class ArtService {
     }
 
     @Transactional
-    public ArtCreateDto create(ArtCreateDto artDto){
+    public ArtCreateDto create(ArtCreateDto artDto) throws FileUploadException {
         Art art = modelMapper.map(artDto, Art.class);
         User user = getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизован"));
         art.setAuthor(user);
         art.setPublicationTime(LocalDateTime.now());
 
-        if (artDto.getImageFile() != null && !artDto.getImageFile().isEmpty()) {
-            try {
-                String fileName = artsPrefix + UUID.randomUUID().toString() + "_" + artDto.getImageFile().getOriginalFilename();
-                String s3Url = uploadFileToS3(artDto.getImageFile(), fileName);
-                art.setImageUrl(s3Url);
-            } catch (IOException | S3Exception e) {
-                throw new RuntimeException("Ошибка при загрузке изображения в S3", e);
-            }
-        }
+        String s3Url = saveArtInS3(artDto.getImageFile());
+        art.setImageUrl(s3Url);
         art = artRepo.create(art);
         Set<String> tags = artDto.getTags().stream().map(TagDto::getName).collect(Collectors.toSet());
         List<String> list = tagRepo.getNotExistsTags(tags);
         for (String tag : list){
-            ArtTag artTag = new ArtTag(art, tagRepo.create(new Tag(tag)));
+            Tag t = tagRepo.create(new Tag(tag));
+            ArtTag artTag = new ArtTag(art, t);
             artTagRepo.create(artTag);
         }
         return modelMapper.map(art, ArtCreateDto.class);
     }
 
     @Transactional
-    public ArtDto save(ArtUpdateDto arts) {
-        Art art = modelMapper.map(arts, Art.class);
-        if (arts.getImageFile() != null && !arts.getImageFile().isEmpty()) {
-            try {
-                String fileName = artsPrefix + UUID.randomUUID().toString() + "_" + arts.getImageFile().getOriginalFilename();
-                String s3Url = uploadFileToS3(arts.getImageFile(), fileName);
-                art.setImageUrl(s3Url);
-            } catch (IOException | S3Exception e) {
-                throw new RuntimeException("Ошибка при обновлении изображения в S3", e);
-            }
-        }
+    public ArtDto save(ArtUpdateDto artDto) throws FileUploadException {
+        UUID artId = artDto.getId();
+        Art art = artRepo.findById(artId)
+                .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
+        modelMapper.map(artDto, art);
+        String s3Url = saveArtInS3(artDto.getImageFile());
+        art.setImageUrl(s3Url);
         artRepo.save(art);
-        tagService.updateListTagsInArt(arts.getTags(), art);
+        tagService.updateListTagsInArt(artDto.getTags(), art);
         return modelMapper.map(art, ArtDto.class);
     }
 
-    private String uploadFileToS3(MultipartFile file, String fileName) throws IOException, S3Exception {
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileName)
-                .contentType(file.getContentType())
-                .build();
+    private String saveArtInS3(MultipartFile imageFile) throws FileUploadException {
+        if(imageFile == null || imageFile.isEmpty())
+            throw new IncorrectDataException("Добавьте изображение");
+        try {
+            String fileName = artsPrefix + UUID.randomUUID().toString() + "_" + imageFile.getOriginalFilename();
 
-        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
-        return s3Client.utilities().getUrl(b -> b.bucket(bucketName).key(fileName)).toExternalForm();
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileName)
+                    .contentType(imageFile.getContentType())
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(imageFile.getInputStream(), imageFile.getSize()));
+            return s3Client.utilities().getUrl(b -> b.bucket(bucketName).key(fileName)).toExternalForm();
+        } catch (IOException | S3Exception e) {
+            throw new FileUploadException("Ошибка при сохранении изображения в хранилище: " + e);
+        }
     }
 
-
     @Transactional
-    public void deleted(ArtDto artDto){
-        Art art = modelMapper.map(artDto, Art.class);
+    public void deleted(String artId){
+        UUID artUuid = UUID.fromString(artId);
+        Art art = artRepo.findById(artUuid)
+                .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
         art.setDeleted(true);
         artRepo.save(art);
     }
@@ -135,7 +136,8 @@ public class ArtService {
     @Transactional(readOnly = true)
     public ArtDto findArtAndAuthorById(String id){
         UUID uuid = UUID.fromString(id);
-        Art art = artRepo.findArtAndAuthorById(uuid, false);
+        Art art = artRepo.findArtAndAuthorById(uuid, false)
+                .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
         return modelMapper.map(art, ArtDto.class);
     }
 
@@ -157,9 +159,10 @@ public class ArtService {
         if (user.isEmpty())
             return;
         UUID uuid = UUID.fromString(artId);
-        Art art = artRepo.findById(uuid).get();
-        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
-        if (interaction == null){
+        Art art = artRepo.findById(uuid)
+                .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
+        Optional<Interaction> interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
+        if (interaction.isEmpty()) {
             interactionRepo.create(new Interaction(user.get(),art));
             art.setCountViews(art.getCountViews() + 1);
             artRepo.save(art);
@@ -169,22 +172,23 @@ public class ArtService {
     @Transactional
     public boolean likeArt(String artId){
         UUID uuid = UUID.fromString(artId);
-        Art art = artRepo.findById(uuid).get();
+        Art art = artRepo.findById(uuid)
+                .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
         Optional<User> user = getCurrentUser();
         if (user.isEmpty())
             throw new AuthorizationException("Пользователь не авторизован");
-        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
-        if (interaction != null && !interaction.isLike()) {
-            interaction.setLike(true);
-            interaction.setLikedAt(LocalDateTime.now());
-            interactionRepo.save(interaction);
+        Optional<Interaction> interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
+        if (interaction.isPresent() && !interaction.get().isLike()) {
+            interaction.get().setLike(true);
+            interaction.get().setLikedAt(LocalDateTime.now());
+            interactionRepo.save(interaction.get());
             art.setCountLikes(art.getCountLikes() + 1);
             artRepo.save(art);
             return true;
         }
-        else if (interaction != null && interaction.getLikedAt() != null){
-            interaction.setLike(false);
-            interactionRepo.save(interaction);
+        else if (interaction.isPresent() && interaction.get().getLikedAt() != null){
+            interaction.get().setLike(false);
+            interactionRepo.save(interaction.get());
             art.setCountLikes(art.getCountLikes() - 1);
             artRepo.save(art);
         }
@@ -214,8 +218,8 @@ public class ArtService {
         Optional<User> user = getCurrentUser();
         if (user.isEmpty())
             return false;
-        Interaction interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
-        return interaction != null && interaction.isLike();
+        Optional<Interaction> interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
+        return interaction.isPresent() && interaction.get().isLike();
     }
 
     public Page<ArtCardDto> getFeed(String type, int page, int size) {
@@ -224,7 +228,7 @@ public class ArtService {
             case "recommended" -> getRecommendedArts(page, size);
             case "subscriptions" -> getSubscribedArts(page, size);
             case "latest" -> getLatestArts(page, size);
-            default -> throw new IllegalArgumentException("Invalid feed type");
+            default -> throw new IncorrectDataException("Неправильный тип сортировки артов");
         };
     }
 

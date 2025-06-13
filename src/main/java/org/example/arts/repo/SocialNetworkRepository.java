@@ -14,5 +14,5 @@ public interface SocialNetworkRepository{
     Page<SocialNetwork> getPageEntities(int page, int size, boolean deleted);
     SocialNetwork save(SocialNetwork entity);
 
-    List<SocialNetwork> findByUserAndDeletedFalse(UUID id, boolean deleted);
+    List<SocialNetwork> findByUserId(UUID id, boolean deleted);
 }

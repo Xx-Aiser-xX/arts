@@ -15,7 +15,7 @@ public interface InteractionRepository {
     Page<Interaction> getPageEntities(int page, int size, boolean deleted);
     Interaction save(Interaction entity);
 
-    Interaction findByArtIdAndUserId(UUID artId, UUID userId, boolean deleted);
+    Optional<Interaction> findByArtIdAndUserId(UUID artId, UUID userId, boolean deleted);
     List<Interaction> findLikedByUser(UUID userId, boolean isLike, boolean deleted);
     List<Interaction> findWithArtTagsByUserId(UUID userId, boolean deleted);
     List<Interaction> findRecentLikes(LocalDateTime since, boolean like, boolean deleted);

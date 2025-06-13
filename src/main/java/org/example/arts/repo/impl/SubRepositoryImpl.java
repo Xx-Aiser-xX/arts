@@ -8,6 +8,7 @@ import org.example.arts.repo.SubRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -19,53 +20,44 @@ public class SubRepositoryImpl extends BaseRepository<Sub> implements SubReposit
         super(Sub.class);
     }
 
-    public Sub signed(UUID idUser, UUID idAuthor){
+    public Optional<Sub> signed(UUID idUser, UUID idAuthor){
         try {
-            return em.createQuery(
+            return Optional.ofNullable(em.createQuery(
                             "SELECT s " +
                                     "FROM Sub s " +
                                     "WHERE s.subscriber.id =:idUser " +
                                     "AND s.target.id = :idAuthor", Sub.class)
                     .setParameter("idUser", idUser)
                     .setParameter("idAuthor", idAuthor)
-                    .getSingleResult();
+                    .getSingleResult());
         }
         catch (NoResultException e){
-            return null;
+            return Optional.empty();
         }
     }
 
     public List<Sub> findBySubscriberId(UUID subscriberId, boolean deleted) {
-        try {
-            return em.createQuery(
-                    "SELECT s " +
-                            "FROM Sub s " +
-                            "WHERE s.subscriber.id = :subscriberId " +
-                            "AND s.deleted = :deleted", Sub.class)
-                    .setParameter("subscriberId", subscriberId)
-                    .setParameter("deleted", deleted)
-                    .getResultList();
-        }
-        catch (NoResultException e){
-            return null;
-        }
+        return em.createQuery(
+                "SELECT s " +
+                        "FROM Sub s " +
+                        "WHERE s.subscriber.id = :subscriberId " +
+                        "AND s.deleted = :deleted", Sub.class)
+                .setParameter("subscriberId", subscriberId)
+                .setParameter("deleted", deleted)
+                .getResultList();
+
     }
 
     public List<Sub> findSubAndUserBySubscriberId(UUID subscriberId, boolean deleted) {
-        try {
-            return em.createQuery(
-                            "SELECT s " +
-                                    "FROM Sub s " +
-                                    "JOIN FETCH s.target t " +
-                                    "WHERE s.subscriber.id = :subscriberId " +
-                                    "AND s.deleted = :deleted", Sub.class)
-                    .setParameter("subscriberId", subscriberId)
-                    .setParameter("deleted", deleted)
-                    .getResultList();
-        }
-        catch (NoResultException e){
-            return null;
-        }
+        return em.createQuery(
+                "SELECT s " +
+                        "FROM Sub s " +
+                        "JOIN FETCH s.target t " +
+                        "WHERE s.subscriber.id = :subscriberId " +
+                        "AND s.deleted = :deleted", Sub.class)
+                .setParameter("subscriberId", subscriberId)
+                .setParameter("deleted", deleted)
+                .getResultList();
     }
 
     public List<Sub> findBySubscriber(UUID subscriberId, boolean deleted) {

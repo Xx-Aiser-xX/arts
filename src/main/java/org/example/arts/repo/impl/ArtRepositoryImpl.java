@@ -1,20 +1,14 @@
 package org.example.arts.repo.impl;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
 import org.example.arts.entities.Art;
 import org.example.arts.repo.ArtRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Repository
 public class ArtRepositoryImpl extends BaseRepository<Art> implements ArtRepository {
@@ -40,16 +34,21 @@ public class ArtRepositoryImpl extends BaseRepository<Art> implements ArtReposit
     }
 
     @Override
-    public Art findArtAndAuthorById(UUID id, boolean deleted){
-        return em.createQuery(
-                        "SELECT a " +
-                                "FROM Art a " +
-                                "JOIN FETCH a.author u " +
-                                "WHERE a.id = :id " +
-                                "AND a.deleted = :deleted", Art.class)
-                .setParameter("id", id)
-                .setParameter("deleted", deleted)
-                .getSingleResult();
+    public Optional<Art> findArtAndAuthorById(UUID id, boolean deleted){
+        try {
+            return Optional.ofNullable(em.createQuery(
+                            "SELECT a " +
+                                    "FROM Art a " +
+                                    "JOIN FETCH a.author u " +
+                                    "WHERE a.id = :id " +
+                                    "AND a.deleted = :deleted", Art.class)
+                    .setParameter("id", id)
+                    .setParameter("deleted", deleted)
+                    .getSingleResult());
+        }
+        catch (NoResultException e){
+            return Optional.empty();
+        }
     }
 
     @Override
