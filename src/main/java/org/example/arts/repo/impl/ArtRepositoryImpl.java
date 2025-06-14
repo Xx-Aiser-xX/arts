@@ -84,15 +84,25 @@ public class ArtRepositoryImpl extends BaseRepository<Art> implements ArtReposit
                 .getResultList();
     }
 
-    public List<Art> searchByName(String query, boolean deleted) {
-        return em.createQuery(
+    public Set<Art> searchByName(String query, boolean deleted) {
+        List<Art> list = em.createQuery(
                         "SELECT a FROM Art a " +
                                 "WHERE LOWER(a.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
                                 "AND a.deleted = :deleted", Art.class)
                 .setParameter("query", query)
                 .setParameter("deleted", deleted)
                 .getResultList();
+        return new HashSet<>(list);
     }
 
-
+    public Set<Art> searchByTagName(String query, boolean deleted){
+        List<Art> list = em.createQuery(
+                "SELECT at.art FROM ArtTag at " +
+                        "WHERE LOWER(at.tag.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+                        "AND at.deleted = :deleted", Art.class)
+                .setParameter("query", query)
+                .setParameter("deleted", deleted)
+                .getResultList();
+        return new HashSet<>(list);
+    }
 }

@@ -81,7 +81,7 @@ public class ArtController {
             @RequestParam(defaultValue = "") String query,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size) {
-        Page<ArtCardDto> results = artService.searchArtsByName(query, page, size);
+        Page<ArtCardDto> results = artService.searchArtsByTagNameAndName(query, page, size);
         return ResponseEntity.ok(results);
     }
 }

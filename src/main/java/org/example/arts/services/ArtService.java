@@ -232,21 +232,32 @@ public class ArtService {
         };
     }
 
-    public Page<ArtCardDto> searchArtsByName(String query, int page, int size) {
-        List<Art> arts = artRepo.searchByName(query, false);
+    public Page<ArtCardDto> searchArtsByTagNameAndName(String query, int page, int size) {
+        Set<Art> artsFromTags = artRepo.searchByTagName(query, false);
+        Set<Art> artsFromName = artRepo.searchByName(query, false);
 
-        List<ArtCardDto> sorted = arts.stream()
+        List<ArtCardDto> tagArtsSorted = artsFromTags.stream()
                 .sorted(Comparator.comparing(Art::getPublicationTime).reversed())
                 .map(art -> modelMapper.map(art, ArtCardDto.class))
                 .toList();
 
-        List<ArtCardDto> paged = sorted.subList((page - 1) * size,
-                Math.min((page - 1) * size + size, sorted.size()));
+        Set<Art> nameOnlyArts = new LinkedHashSet<>(artsFromName);
+        nameOnlyArts.removeAll(artsFromTags);
 
-        return new PageImpl<>(paged, PageRequest.of(page - 1, size), sorted.size());
+        List<ArtCardDto> nameOnlyArtsSorted = nameOnlyArts.stream()
+                .sorted(Comparator.comparing(Art::getPublicationTime).reversed())
+                .map(art -> modelMapper.map(art, ArtCardDto.class))
+                .toList();
+
+        List<ArtCardDto> finalSortedList = new ArrayList<>();
+        finalSortedList.addAll(tagArtsSorted);
+        finalSortedList.addAll(nameOnlyArtsSorted);
+
+        List<ArtCardDto> paged = finalSortedList.subList((page - 1) * size,
+                Math.min((page - 1) * size + size, finalSortedList.size()));
+
+        return new PageImpl<>(paged, PageRequest.of(page - 1, size), finalSortedList.size());
     }
-
-
 
     private Page<ArtCardDto> getTrendingArts(int page, int size) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(7);

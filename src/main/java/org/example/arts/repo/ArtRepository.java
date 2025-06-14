@@ -21,5 +21,6 @@ public interface ArtRepository {
     List<Art> findByTagIdsExcludingArtIds(Set<UUID> tagIds, boolean deleted);
     List<Art> findByAuthorIds(Set<UUID> authorIds, boolean deleted);
     List<Art> findRecent(LocalDateTime since, boolean deleted);
-    List<Art> searchByName(String query, boolean deleted);
+    Set<Art> searchByName(String query, boolean deleted);
+    Set<Art> searchByTagName(String query, boolean deleted);
 }

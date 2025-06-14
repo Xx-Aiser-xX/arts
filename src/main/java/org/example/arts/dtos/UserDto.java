@@ -1,12 +1,20 @@
 package org.example.arts.dtos;
 
 public class UserDto {
+    private String id;
     private String userName;
     private String description;
     private String photoUrl;
     private int countJobs;
     private int countSubscriptions;
     private int countSubscribers;
+
+    public String getId() {
+        return id;
+    }
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getUserName() {
         return userName;
