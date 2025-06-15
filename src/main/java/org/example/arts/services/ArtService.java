@@ -8,6 +8,7 @@ import org.example.arts.exceptions.AuthorizationException;
 import org.example.arts.exceptions.IncorrectDataException;
 import org.example.arts.repo.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.*;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +18,6 @@ import org.example.arts.exceptions.DataDeletedException;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -32,14 +31,16 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@EnableCaching
 public class ArtService {
     private final ArtRepository artRepo;
-    private final UserRepository userRepo;
     private final TagRepository tagRepo;
     private final ArtTagRepository artTagRepo;
     private final InteractionRepository interactionRepo;
     private final SubRepository subRepo;
     private final TagService tagService;
+    private final CurrentUserService currentUserService;
+
     private final ModelMapper modelMapper;
     private final S3Client s3Client;
 
@@ -50,14 +51,14 @@ public class ArtService {
     private String artsPrefix;
 
     @Autowired
-    public ArtService(ArtRepository artRepo, UserRepository userRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagService tagService, ModelMapper modelMapper, S3Client s3Client) {
+    public ArtService(ArtRepository artRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagService tagService, CurrentUserService currentUserService, ModelMapper modelMapper, S3Client s3Client) {
         this.artRepo = artRepo;
-        this.userRepo = userRepo;
         this.tagRepo = tagRepo;
         this.artTagRepo = artTagRepo;
         this.interactionRepo = interactionRepo;
         this.subRepo = subRepo;
         this.tagService = tagService;
+        this.currentUserService = currentUserService;
         this.modelMapper = modelMapper;
         this.s3Client = s3Client;
     }
@@ -72,9 +73,13 @@ public class ArtService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "arts", allEntries = true),
+            @CacheEvict(value = "arts-search", allEntries = true),
+            @CacheEvict(value = "arts-author", allEntries = true)})
     public ArtCreateDto create(ArtCreateDto artDto) throws FileUploadException {
         Art art = modelMapper.map(artDto, Art.class);
-        User user = getCurrentUser()
+        User user = currentUserService.getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизован"));
         art.setAuthor(user);
         art.setPublicationTime(LocalDateTime.now());
@@ -93,15 +98,26 @@ public class ArtService {
     }
 
     @Transactional
+    @Caching(
+            evict = { @CacheEvict(value = "arts-author", allEntries = true),
+                    @CacheEvict(value = "arts-search", allEntries = true)},
+            put = { @CachePut(value = "arts", key = "#artDto.id.toString()")})
     public ArtDto save(ArtUpdateDto artDto) throws FileUploadException {
         UUID artId = artDto.getId();
         Art art = artRepo.findById(artId)
                 .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
-        modelMapper.map(artDto, art);
-        String s3Url = saveArtInS3(artDto.getImageFile());
-        art.setImageUrl(s3Url);
-        artRepo.save(art);
-        tagService.updateListTagsInArt(artDto.getTags(), art);
+//        modelMapper.map(artDto, art);
+        art.setName(artDto.getName());
+        art.setDescription(artDto.getDescription());
+        art.setNsfw(artDto.isNsfw());
+        if (artDto.getImageFile() != null && !artDto.getImageFile().isEmpty()) {
+            String s3Url = saveArtInS3(artDto.getImageFile());
+            art.setImageUrl(s3Url);
+        }
+        art = artRepo.save(art);
+        if (artDto.getTags() != null) {
+            tagService.updateListTagsInArt(artDto.getTags(), art);
+        }
         return modelMapper.map(art, ArtDto.class);
     }
 
@@ -125,15 +141,23 @@ public class ArtService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "arts", key = "#artId"),
+            @CacheEvict(value = "arts-author", allEntries = true)})
     public void deleted(String artId){
         UUID artUuid = UUID.fromString(artId);
         Art art = artRepo.findById(artUuid)
                 .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
+        User user = currentUserService.getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизован"));
+        if (!user.equals(art.getAuthor()))
+            throw new AuthorizationException("Вы не являетесь владельцем Арта");
         art.setDeleted(true);
         artRepo.save(art);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "arts", key = "#id")
     public ArtDto findArtAndAuthorById(String id){
         UUID uuid = UUID.fromString(id);
         Art art = artRepo.findArtAndAuthorById(uuid, false)
@@ -141,6 +165,7 @@ public class ArtService {
         return modelMapper.map(art, ArtDto.class);
     }
 
+    @Cacheable(value = "arts-author", key = "#id + ':' + #page + ':' + #size")
     public Page<ArtCardDto> getArtByAuthorId(String id, Integer page, Integer size){
         UUID uuid = UUID.fromString(id);
         List<Art> arts = artRepo.findByAuthor(uuid, false);
@@ -155,7 +180,7 @@ public class ArtService {
 
     @Transactional
     public void viewArt(String artId){
-        Optional<User> user = getCurrentUser();
+        Optional<User> user = currentUserService.getCurrentUser();
         if (user.isEmpty())
             return;
         UUID uuid = UUID.fromString(artId);
@@ -174,7 +199,7 @@ public class ArtService {
         UUID uuid = UUID.fromString(artId);
         Art art = artRepo.findById(uuid)
                 .orElseThrow(() -> new EntityNotFoundException("Арт не найден"));
-        Optional<User> user = getCurrentUser();
+        Optional<User> user = currentUserService.getCurrentUser();
         if (user.isEmpty())
             throw new AuthorizationException("Пользователь не авторизован");
         Optional<Interaction> interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
@@ -197,7 +222,7 @@ public class ArtService {
 
     @Transactional(readOnly = true)
     public Page<ArtCardDto> getLikedArtsByCurrentUser(int page, int size) {
-        Optional<UUID> userId = getCurrentUserId();
+        Optional<UUID> userId = currentUserService.getCurrentUserId();
         if (userId.isEmpty())
             throw new AuthorizationException("Пользователь не авторизован");
         List<Interaction> likes = interactionRepo.findLikedByUser(userId.get(), true, false);
@@ -212,10 +237,9 @@ public class ArtService {
         return new PageImpl<>(paged, PageRequest.of(page - 1, size), likedArts.size());
     }
 
-
     public boolean isLikeArt(String artId){
         UUID uuid = UUID.fromString(artId);
-        Optional<User> user = getCurrentUser();
+        Optional<User> user = currentUserService.getCurrentUser();
         if (user.isEmpty())
             return false;
         Optional<Interaction> interaction = interactionRepo.findByArtIdAndUserId(uuid, user.get().getId(), false);
@@ -232,6 +256,7 @@ public class ArtService {
         };
     }
 
+    @Cacheable(value = "arts-search", key = "#query + ':' + #page + ':' + #size")
     public Page<ArtCardDto> searchArtsByTagNameAndName(String query, int page, int size) {
         Set<Art> artsFromTags = artRepo.searchByTagName(query, false);
         Set<Art> artsFromName = artRepo.searchByName(query, false);
@@ -277,7 +302,7 @@ public class ArtService {
 
 
     private Page<ArtCardDto> getRecommendedArts(int page, int size) {
-        Optional<UUID> userId = getCurrentUserId();
+        Optional<UUID> userId = currentUserService.getCurrentUserId();
         if (userId.isEmpty())
             throw new AuthorizationException("Пользователь не авторизован");
         List<Interaction> interactions = interactionRepo.findWithArtTagsByUserId(userId.get(), false);
@@ -298,7 +323,7 @@ public class ArtService {
     }
 
     private Page<ArtCardDto> getSubscribedArts(int page, int size) {
-        Optional<UUID> userId = getCurrentUserId();
+        Optional<UUID> userId = currentUserService.getCurrentUserId();
         if (userId.isEmpty())
             throw new AuthorizationException("Пользователь не авторизован");
         List<Sub> subs = subRepo.findSubAndUserBySubscriberId(userId.get(), false);
@@ -337,33 +362,5 @@ public class ArtService {
             return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), list.size());
         }
         return new PageImpl<>(list.subList(fromIndex, toIndex), PageRequest.of(page - 1, size), list.size());
-    }
-
-    private Jwt getJwt() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return null;
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof Jwt jwt) {
-            return jwt;
-        }
-        return null;
-    }
-
-
-    private Optional<UUID> getCurrentUserId(){
-        Jwt jwt = getJwt();
-        if (jwt == null)
-            return Optional.empty();
-        return Optional.of(UUID.fromString(jwt.getSubject()));
-    }
-
-    private Optional<User> getCurrentUser(){
-        Jwt jwt = getJwt();
-        if (jwt == null)
-            return Optional.empty();
-        UUID id = UUID.fromString(jwt.getSubject());
-        return userRepo.findById(id);
     }
 }

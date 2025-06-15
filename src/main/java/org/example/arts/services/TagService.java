@@ -11,13 +11,16 @@ import org.example.arts.exceptions.DataDeletedException;
 import org.example.arts.repo.ArtTagRepository;
 import org.example.arts.repo.TagRepository;
 import org.modelmapper.ModelMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@EnableCaching
 public class TagService {
     private final TagRepository tagRepo;
     private final ArtTagRepository artTagRepo;
@@ -64,6 +67,8 @@ public class TagService {
         tagRepo.save(tag);
     }
 
+    @Transactional
+    @CacheEvict(value = "tags", key = "#art.id.toString()")
     public void updateListTagsInArt(List<TagDto> tagDto, Art art){
 
         List<Tag> tags = tagRepo.findByArtId(art.getId(), false);
@@ -100,6 +105,7 @@ public class TagService {
         }
     }
 
+    @Cacheable(value = "tags", key = "#id")
     public List<TagDto> getTagsByArtId(String id){
         UUID uuid = UUID.fromString(id);
         List<Tag> tags = tagRepo.findByArtId(uuid, false);

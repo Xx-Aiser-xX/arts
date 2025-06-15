@@ -6,10 +6,19 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 public class UserUpdateDto {
+    private String id;
     private String userName;
     private MultipartFile avatarFile;
     private String description;
     private List<SocialNetworkDto> socialNetwork;
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getUserName() {
         return userName;

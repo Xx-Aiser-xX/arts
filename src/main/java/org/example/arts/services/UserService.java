@@ -12,11 +12,9 @@ import org.example.arts.repo.*;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -31,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@EnableCaching
 public class UserService {
 
     private final UserRepository userRepo;
@@ -40,6 +39,7 @@ public class UserService {
     private final ArtRepository artRepo;
     private final ModelMapper modelMapper;
     private final S3Client s3Client;
+    private final CurrentUserService currentUserService;
 
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
@@ -48,7 +48,7 @@ public class UserService {
     private String avatarsPrefix;
 
     @Autowired
-    public UserService(UserRepository userRepo, SocialNetworkRepository socialNetworkRepo, UserPreferencesRepository userPreferencesRepo, SubRepository subRepo, ArtRepository artRepo, ModelMapper modelMapper, S3Client s3Client) {
+    public UserService(UserRepository userRepo, SocialNetworkRepository socialNetworkRepo, UserPreferencesRepository userPreferencesRepo, SubRepository subRepo, ArtRepository artRepo, ModelMapper modelMapper, S3Client s3Client, CurrentUserService currentUserService) {
         this.userRepo = userRepo;
         this.socialNetworkRepo = socialNetworkRepo;
         this.userPreferencesRepo = userPreferencesRepo;
@@ -56,9 +56,11 @@ public class UserService {
         this.artRepo = artRepo;
         this.modelMapper = modelMapper;
         this.s3Client = s3Client;
+        this.currentUserService = currentUserService;
     }
 
     @Transactional
+    @CacheEvict(value = "user", key = "#dto.id.toString()")
     public UserDto registerUser(RegisterUserDto dto) {
 
         if (userRepo.findByUserName(dto.getUserName(), false).isPresent()) {
@@ -72,12 +74,10 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = {"user", "social-network"}, key = "#dto.id")
     public UserDto updateUser(UserUpdateDto dto) throws FileUploadException {
-        UUID id = getCurrentUserId()
-                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
-
-        User user = userRepo.findById(id)
-                .orElseThrow(() -> new AuthorizationException("Пользователь не найден"));
+        User user = currentUserService.getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизован"));
 
         if (dto.getUserName() != null && !dto.getUserName().equals(user.getUserName())) {
             if (userRepo.findByUserName(dto.getUserName(), false).isPresent()) {
@@ -88,7 +88,7 @@ public class UserService {
 
         if (dto.getAvatarFile() != null && !dto.getAvatarFile().isEmpty()) {
             try {
-                String fileName = avatarsPrefix + id.toString() + "_" + UUID.randomUUID().toString() + "_" + dto.getAvatarFile().getOriginalFilename();
+                String fileName = avatarsPrefix + user.getId().toString() + "_" + UUID.randomUUID().toString() + "_" + dto.getAvatarFile().getOriginalFilename();
                 String s3Url = uploadFileToS3(dto.getAvatarFile(), fileName);
                 user.setPhotoUrl(s3Url);
             } catch (IOException | S3Exception e) {
@@ -105,14 +105,10 @@ public class UserService {
     }
 
     private void updateUserSocialNetworks(User user, List<SocialNetworkDto> newSocialNetworkDtos) {
-        List<SocialNetwork> currentSocialNetworks = socialNetworkRepo.findByUserId(user.getId(), false); // Метод должен быть в SocialNetworkRepository
+        List<SocialNetwork> currentSocialNetworks = socialNetworkRepo.findByUserId(user.getId(), false);
 
         Map<String, SocialNetwork> currentSocialNetworksMap = currentSocialNetworks.stream()
-                .collect(Collectors.toMap(SocialNetwork::getLink, Function.identity())); // Или new SocialNetwork(link, platform)
-
-        Set<String> newSocialNetworkLinks = newSocialNetworkDtos.stream()
-                .map(SocialNetworkDto::getLink)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toMap(SocialNetwork::getLink, Function.identity()));
 
         for (SocialNetworkDto newSnDto : newSocialNetworkDtos) {
             String newSnLink = newSnDto.getLink();
@@ -151,48 +147,40 @@ public class UserService {
     }
 
     @Transactional
+    @CacheEvict(value = "user", key = "#id")
     public void deleted(String id){
-        UUID uuid = UUID.fromString(id);
-        User user = userRepo.findById(uuid)
-                .orElseThrow(() -> new EntityNotFoundException("Пользователь не найден"));
+        User user = getUserById(id);
+        User currentUser = currentUserService.getCurrentUser()
+                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизован"));
+        if (!user.equals(currentUser))
+            throw new AuthorizationException("Вы не являетесь владельцем данного аккаунта");
         user.setDeleted(true);
         userRepo.save(user);
     }
 
     public UserDto getCurrentUserDto() {
-        User user = getCurrentUser()
+        User user = currentUserService.getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         return modelMapper.map(user, UserDto.class);
     }
 
     public UserMinDto getCurrentUserMinDto() {
-        User user = getCurrentUser()
+        User user = currentUserService.getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         return modelMapper.map(user, UserMinDto.class);
     }
 
+    @Cacheable(value = "social-network", key = "#id")
     public List<SocialNetworkDto> getSocialNetworkUser(String id) {
         UUID uuid = UUID.fromString(id);
         List<SocialNetwork> socialNetworks = socialNetworkRepo.findByUserId(uuid, false);
         return socialNetworks.stream().map(sn -> modelMapper.map(sn, SocialNetworkDto.class)).toList();
     }
 
-//    public Page<SubDto> getSubscriptions(Integer page, Integer size){
-//        Page<Sub> subs = subRepo.getPageEntities(page, size, false);
-//        Page<Sub> sort = new PageImpl<>(
-//                subs.stream()
-//                        .sorted(Comparator.comparing(Sub::getSubscriptionDate).reversed())
-//                        .toList(),
-//                subs.getPageable(),
-//                subs.getTotalElements()
-//        );
-//        return sort.map(sub -> modelMapper.map(sub, SubDto.class));
-//    }
-
     @Transactional
     public SubscribeDto subscribe(String idAuthor){
         UUID uuid = UUID.fromString(idAuthor);
-        User user = getCurrentUser()
+        User user = currentUserService.getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         User author = userRepo.findById(uuid)
                 .orElseThrow(() -> new AuthorizationException("Автор не найден"));;
@@ -214,9 +202,10 @@ public class UserService {
             throw new IllegalArgumentException("Пользователь не может подписаться сам на себя");
     }
 
+
     public boolean isSubscribe(String authorId){
         UUID uuid = UUID.fromString(authorId);
-        User user = getCurrentUser()
+        User user = currentUserService.getCurrentUser()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         User author = userRepo.findById(uuid)
                 .orElseThrow(() -> new AuthorizationException("Автор не найден"));
@@ -224,47 +213,49 @@ public class UserService {
         return (sub.isPresent() && !sub.get().isDeleted());
     }
 
+
     private User getUserById(String id){
         UUID uuid = UUID.fromString(id);
         return userRepo.findById(uuid)
                 .orElseThrow(() -> new EntityNotFoundException("Пользователь не найден"));
     }
 
+    @Cacheable(value = "user", key = "#id")
     public UserDto getUser(String id){
         User user = getUserById(id);
         return modelMapper.map(user, UserDto.class);
     }
 
-    @Transactional(readOnly = true)
-    public Page<SubWithArtsDto> getSubscriptionsWithArts(int artsPerAuthor, Integer page, Integer size) {
-        UUID userUUID = getCurrentUserId()
-                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
-        List<Sub> subs = subRepo.findBySubscriberId(userUUID, false);
-        subs.sort(Comparator.comparing(Sub::getSubscriptionDate).reversed());
-
-        List<Sub> paginatedSubs = subs.subList((page - 1) * size,
-                Math.min((page - 1) * size + size, subs.size()));
-
-        List<SubWithArtsDto> result = paginatedSubs.stream()
-                .map(sub -> {
-                    User author = sub.getTarget();
-                    List<Art> allArts = artRepo.findByAuthor(author.getId(), false);
-                    List<ArtCardDto> artCards = allArts.stream()
-                            .sorted(Comparator.comparing(Art::getPublicationTime).reversed())
-                            .limit(artsPerAuthor)
-                            .map(art -> modelMapper.map(art, ArtCardDto.class))
-                            .toList();
-
-                    SubWithArtsDto dto = new SubWithArtsDto();
-                    dto.setAuthor(modelMapper.map(author, UserMinDto.class));
-                    dto.setArts(artCards);
-                    return dto;
-                }).toList();
-        return new PageImpl<>(result, PageRequest.of(page - 1, size), subs.size());
-    }
+//    @Transactional(readOnly = true)
+//    public Page<SubWithArtsDto> getSubscriptionsWithArts(int artsPerAuthor, Integer page, Integer size) {
+//        UUID userUUID = currentUserService.getCurrentUserId()
+//                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+//        List<Sub> subs = subRepo.findBySubscriberId(userUUID, false);
+//        subs.sort(Comparator.comparing(Sub::getSubscriptionDate).reversed());
+//
+//        List<Sub> paginatedSubs = subs.subList((page - 1) * size,
+//                Math.min((page - 1) * size + size, subs.size()));
+//
+//        List<SubWithArtsDto> result = paginatedSubs.stream()
+//                .map(sub -> {
+//                    User author = sub.getTarget();
+//                    List<Art> allArts = artRepo.findByAuthor(author.getId(), false);
+//                    List<ArtCardDto> artCards = allArts.stream()
+//                            .sorted(Comparator.comparing(Art::getPublicationTime).reversed())
+//                            .limit(artsPerAuthor)
+//                            .map(art -> modelMapper.map(art, ArtCardDto.class))
+//                            .toList();
+//
+//                    SubWithArtsDto dto = new SubWithArtsDto();
+//                    dto.setAuthor(modelMapper.map(author, UserMinDto.class));
+//                    dto.setArts(artCards);
+//                    return dto;
+//                }).toList();
+//        return new PageImpl<>(result, PageRequest.of(page - 1, size), subs.size());
+//    }
 
     public List<UserMinDto> getRecentSubscriptions(int limit) {
-        UUID userId = getCurrentUserId()
+        UUID userId = currentUserService.getCurrentUserId()
                 .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
         List<Sub> allSubs = subRepo.findBySubscriber(userId, false);
 
@@ -273,33 +264,5 @@ public class UserService {
                 .limit(limit)
                 .map(sub -> modelMapper.map(sub.getTarget(), UserMinDto.class))
                 .toList();
-    }
-
-
-    private Jwt getJwt() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return null;
-        }
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof Jwt jwt) {
-            return jwt;
-        }
-        return null;
-    }
-
-    private Optional<UUID> getCurrentUserId(){
-        Jwt jwt = getJwt();
-        if (jwt == null)
-            return Optional.empty();
-        return Optional.of(UUID.fromString(jwt.getSubject()));
-    }
-
-    private Optional<User> getCurrentUser(){
-        Jwt jwt = getJwt();
-        if (jwt == null)
-            return Optional.empty();
-        UUID id = UUID.fromString(jwt.getSubject());
-        return userRepo.findById(id);
     }
 }

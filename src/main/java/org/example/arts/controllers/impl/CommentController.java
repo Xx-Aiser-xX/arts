@@ -35,4 +35,9 @@ public class CommentController {
         CommentCreateDto createDto = commentService.create(dto);
         return ResponseEntity.ok(createDto);
     }
+
+    @DeleteMapping
+    public void deleted(@RequestParam String id){
+        commentService.deleted(id);
+    }
 }

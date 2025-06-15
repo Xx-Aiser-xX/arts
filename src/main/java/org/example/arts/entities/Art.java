@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import org.example.arts.exceptions.IncorrectDataException;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Set;
 
 @Entity
@@ -147,5 +148,18 @@ public class Art extends BaseEntityId {
     }
     public void setInteractions(Set<Interaction> interactions) {
         this.interactions = interactions;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Art art = (Art) o;
+        return getId().equals(art.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getId());
     }
 }

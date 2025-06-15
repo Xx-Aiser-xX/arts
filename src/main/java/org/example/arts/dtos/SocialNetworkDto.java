@@ -1,6 +1,8 @@
 package org.example.arts.dtos;
 
-public class SocialNetworkDto {
+import java.io.Serializable;
+
+public class SocialNetworkDto implements Serializable {
     private String link;
 
     public String getLink() {

@@ -97,14 +97,14 @@ public class UserController {
         return ResponseEntity.ok(arts);
     }
 
-    @GetMapping("/subs-with-arts")
-    public ResponseEntity<Page<SubWithArtsDto>> getSubsWithArts(
-            @RequestParam(defaultValue = "3") int artsPerAuthor,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "12") Integer size) {
-        Page<SubWithArtsDto> result = userService.getSubscriptionsWithArts(artsPerAuthor, page, size);
-        return ResponseEntity.ok(result);
-    }
+//    @GetMapping("/subs-with-arts")
+//    public ResponseEntity<Page<SubWithArtsDto>> getSubsWithArts(
+//            @RequestParam(defaultValue = "3") int artsPerAuthor,
+//            @RequestParam(defaultValue = "1") Integer page,
+//            @RequestParam(defaultValue = "12") Integer size) {
+//        Page<SubWithArtsDto> result = userService.getSubscriptionsWithArts(artsPerAuthor, page, size);
+//        return ResponseEntity.ok(result);
+//    }
 
     @GetMapping("/get-recent-sub")
     public ResponseEntity<List<UserMinDto>> getRecentSubscriptions(

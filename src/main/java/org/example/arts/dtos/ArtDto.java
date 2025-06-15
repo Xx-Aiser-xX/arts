@@ -2,9 +2,11 @@ package org.example.arts.dtos;
 
 import org.example.arts.entities.User;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class ArtDto {
+public class ArtDto implements Serializable {
+    private String id;
     private String name;
     private String description;
     private String imageUrl;
@@ -13,6 +15,13 @@ public class ArtDto {
     private boolean nsfw;
     private LocalDateTime publicationTime;
     private UserMinDto author;
+
+    public String getId() {
+        return id;
+    }
+    public void setId(String id) {
+        this.id = id;
+    }
 
     public String getName() {
         return name;

@@ -52,6 +52,11 @@ public class ArtController {
         return ResponseEntity.ok(createdArt);
     }
 
+    @DeleteMapping
+    public void deletedArt(@RequestParam String id){
+        artService.deleted(id);
+    }
+
     @PutMapping()
     public ResponseEntity<ArtDto> updateArt(@ModelAttribute ArtUpdateDto artDto) throws FileUploadException {
         ArtDto art = artService.save(artDto);

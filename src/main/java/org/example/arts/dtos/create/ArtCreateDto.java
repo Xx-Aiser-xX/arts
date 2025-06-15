@@ -4,10 +4,11 @@ import org.example.arts.dtos.TagDto;
 import org.example.arts.entities.User;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public class ArtCreateDto {
+public class ArtCreateDto implements Serializable {
     private String name;
     private String description;
     private MultipartFile imageFile;

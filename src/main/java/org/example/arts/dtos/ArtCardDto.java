@@ -1,9 +1,10 @@
 package org.example.arts.dtos;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public class ArtCardDto {
+public class ArtCardDto implements Serializable {
     private UUID id;
     private String name;
     private String imageUrl;

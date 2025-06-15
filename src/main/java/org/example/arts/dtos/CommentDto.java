@@ -1,11 +1,9 @@
 package org.example.arts.dtos;
 
-import org.example.arts.entities.Art;
-import org.example.arts.entities.User;
-
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
-public class CommentDto {
+public class CommentDto implements Serializable {
     private String id;
     private String authorId;
     private String authorUserName;

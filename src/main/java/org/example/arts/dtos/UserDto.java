@@ -1,6 +1,8 @@
 package org.example.arts.dtos;
 
-public class UserDto {
+import java.io.Serializable;
+
+public class UserDto implements Serializable {
     private String id;
     private String userName;
     private String description;

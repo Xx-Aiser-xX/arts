@@ -28,8 +28,8 @@ services:
     image: minio/minio
     container_name: minio
     ports:
-      - "9000:9000" # API MinIO
-      - "9001:9001" # MinIO Console (браузерный интерфейс)
+      - "9000:9000"
+      - "9001:9001"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
@@ -43,6 +43,19 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   minio_data:
