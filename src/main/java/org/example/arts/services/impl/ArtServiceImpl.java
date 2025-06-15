@@ -41,6 +41,7 @@ public class ArtServiceImpl implements ArtService {
     private final SubRepository subRepo;
     private final TagServiceImpl tagService;
     private final CurrentUserService currentUserService;
+    private final TaggerService taggerService;
 
     private final ModelMapper modelMapper;
     private final S3Client s3Client;
@@ -52,7 +53,7 @@ public class ArtServiceImpl implements ArtService {
     private String artsPrefix;
 
     @Autowired
-    public ArtServiceImpl(ArtRepository artRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagServiceImpl tagService, CurrentUserService currentUserService, ModelMapper modelMapper, S3Client s3Client) {
+    public ArtServiceImpl(ArtRepository artRepo, TagRepository tagRepo, ArtTagRepository artTagRepo, InteractionRepository interactionRepo, SubRepository subRepo, TagServiceImpl tagService, CurrentUserService currentUserService, TaggerService taggerService, ModelMapper modelMapper, S3Client s3Client) {
         this.artRepo = artRepo;
         this.tagRepo = tagRepo;
         this.artTagRepo = artTagRepo;
@@ -60,6 +61,7 @@ public class ArtServiceImpl implements ArtService {
         this.subRepo = subRepo;
         this.tagService = tagService;
         this.currentUserService = currentUserService;
+        this.taggerService = taggerService;
         this.modelMapper = modelMapper;
         this.s3Client = s3Client;
     }
@@ -89,6 +91,7 @@ public class ArtServiceImpl implements ArtService {
         art.setImageUrl(s3Url);
         art = artRepo.create(art);
         Set<String> tags = artDto.getTags().stream().map(TagDto::getName).collect(Collectors.toSet());
+        tags.addAll(taggerService.getTagsForImage(artDto.getImageFile()));
         List<String> list = tagRepo.getNotExistsTags(tags);
         Set<Tag> set = tagRepo.getExistsTags(tags);
         for (String tag : list){
