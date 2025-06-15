@@ -124,9 +124,6 @@ public class ArtServiceImpl implements ArtService {
             art.setImageUrl(s3Url);
         }
         art = artRepo.save(art);
-        if (artDto.getTags() != null) {
-            tagService.updateListTagsInArt(artDto.getTags(), art);
-        }
         return modelMapper.map(art, ArtDto.class);
     }
 
@@ -204,6 +201,7 @@ public class ArtServiceImpl implements ArtService {
     }
 
     @Transactional
+    @CacheEvict(value = "arts", key = "#artId")
     public boolean likeArt(String artId){
         UUID uuid = UUID.fromString(artId);
         Art art = artRepo.findById(uuid)

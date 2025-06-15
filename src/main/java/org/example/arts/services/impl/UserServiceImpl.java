@@ -100,10 +100,7 @@ public class UserServiceImpl implements UserService {
             }
         }
         user.setDescription(dto.getDescription());
-
-        if (dto.getSocialNetwork() != null) {
-            updateUserSocialNetworks(user, dto.getSocialNetwork());
-        }
+        updateUserSocialNetworks(user, dto.getSocialNetwork());
 
         return modelMapper.map(userRepo.save(user), UserDto.class);
     }

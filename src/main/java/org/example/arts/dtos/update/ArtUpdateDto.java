@@ -13,7 +13,6 @@ public class ArtUpdateDto {
     private String description;
     private MultipartFile imageFile;
     private boolean nsfw;
-    private List<TagDto> tags;
     private UserMinDto author;
 
     public UUID getId() {
@@ -54,14 +53,6 @@ public class ArtUpdateDto {
 
     public void setNsfw(boolean nsfw) {
         this.nsfw = nsfw;
-    }
-
-    public List<TagDto> getTags() {
-        return tags;
-    }
-
-    public void setTags(List<TagDto> tags) {
-        this.tags = tags;
     }
 
     public UserMinDto getAuthor() {
