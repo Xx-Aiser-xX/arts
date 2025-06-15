@@ -1,4 +1,4 @@
-package org.example.arts.controllers.impl;
+package org.example.arts.controllers;
 
 import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.example.arts.dtos.ArtCardDto;

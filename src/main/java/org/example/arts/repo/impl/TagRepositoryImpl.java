@@ -63,4 +63,18 @@ public class TagRepositoryImpl extends BaseRepository<Tag> implements TagReposit
         return tags.stream()
                 .filter(tag -> !existingNames.contains(tag)).toList();
     }
+
+    @Override
+    public Set<Tag> getExistsTags(Set<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return Set.of();
+        }
+        List<Tag> existingNames = em.createQuery(
+                        "SELECT t " +
+                                "FROM Tag t " +
+                                "WHERE t.name IN :names", Tag.class)
+                .setParameter("names", tags)
+                .getResultList();
+        return new HashSet<>(existingNames);
+    }
 }

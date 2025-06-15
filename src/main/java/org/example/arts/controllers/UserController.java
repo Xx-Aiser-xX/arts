@@ -1,4 +1,4 @@
-package org.example.arts.controllers.impl;
+package org.example.arts.controllers;
 
 import org.apache.tomcat.util.http.fileupload.FileUploadException;
 import org.example.arts.dtos.*;
@@ -60,14 +60,6 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-//    @GetMapping("/me/subscriptions")
-//    public ResponseEntity<Page<SubDto>> getSubscriptions(
-//            @RequestParam(defaultValue = "1") Integer page,
-//            @RequestParam(defaultValue = "12") Integer size){
-//        Page<SubDto> subDto = userService.getSubscriptions(page, size);
-//        return ResponseEntity.ok(subDto);
-//    }
-
     @PostMapping("/subscribe")
     public ResponseEntity<SubscribeDto> subscribe(
             @RequestParam(required = false) String id){
@@ -97,14 +89,13 @@ public class UserController {
         return ResponseEntity.ok(arts);
     }
 
-//    @GetMapping("/subs-with-arts")
-//    public ResponseEntity<Page<SubWithArtsDto>> getSubsWithArts(
-//            @RequestParam(defaultValue = "3") int artsPerAuthor,
-//            @RequestParam(defaultValue = "1") Integer page,
-//            @RequestParam(defaultValue = "12") Integer size) {
-//        Page<SubWithArtsDto> result = userService.getSubscriptionsWithArts(artsPerAuthor, page, size);
-//        return ResponseEntity.ok(result);
-//    }
+    @GetMapping("/subs-with-arts")
+    public ResponseEntity<Page<UserMinDto>> getSubsWithArts(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "12") Integer size) {
+        Page<UserMinDto> result = userService.getSubscriptionsWithArts(page, size);
+        return ResponseEntity.ok(result);
+    }
 
     @GetMapping("/get-recent-sub")
     public ResponseEntity<List<UserMinDto>> getRecentSubscriptions(

@@ -1,4 +1,4 @@
-package org.example.arts.services;
+package org.example.arts.services.impl;
 
 import org.example.arts.entities.User;
 import org.example.arts.repo.UserRepository;

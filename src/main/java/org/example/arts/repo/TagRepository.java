@@ -18,5 +18,6 @@ public interface TagRepository {
     List<Tag> findByArtId(UUID artId, boolean deleted);
     boolean tagExists(String name);
     List<String> getNotExistsTags(Set<String> tags);
+    Set<Tag> getExistsTags(Set<String> tags);
 //    Set<Tag> getSetNotExistsTags(Set<String> tags);
 }

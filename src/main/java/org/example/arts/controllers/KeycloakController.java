@@ -1,4 +1,4 @@
-package org.example.arts.controllers.impl;
+package org.example.arts.controllers;
 
 import org.example.arts.dtos.create.KeycloakRegisterDto;
 import org.example.arts.services.KeycloakService;

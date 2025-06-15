@@ -1,6 +1,5 @@
-package org.example.arts.controllers.impl;
+package org.example.arts.controllers;
 
-import org.example.arts.dtos.ArtCardDto;
 import org.example.arts.dtos.TagDto;
 import org.example.arts.services.TagService;
 import org.springframework.beans.factory.annotation.Autowired;

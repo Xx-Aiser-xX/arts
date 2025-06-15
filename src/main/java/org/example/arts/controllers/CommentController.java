@@ -1,7 +1,6 @@
-package org.example.arts.controllers.impl;
+package org.example.arts.controllers;
 
 import org.example.arts.dtos.CommentDto;
-import org.example.arts.dtos.PageForm;
 import org.example.arts.dtos.create.CommentCreateDto;
 import org.example.arts.services.CommentService;
 import org.springframework.beans.factory.annotation.Autowired;
