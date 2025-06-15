@@ -1,8 +1,6 @@
 package org.example.arts.repo;
 
-import org.example.arts.entities.Art;
 import org.example.arts.entities.ArtTag;
-import org.example.arts.entities.Tag;
 
 import java.util.List;
 import java.util.Optional;

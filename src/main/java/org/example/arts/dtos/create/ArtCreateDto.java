@@ -1,11 +1,9 @@
 package org.example.arts.dtos.create;
 
 import org.example.arts.dtos.TagDto;
-import org.example.arts.entities.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 import java.util.List;
 
 public class ArtCreateDto implements Serializable {

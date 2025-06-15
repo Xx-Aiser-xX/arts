@@ -3,9 +3,7 @@ package org.example.arts.repo.impl;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceContext;
-import org.example.arts.entities.Comment;
 import org.example.arts.entities.Interaction;
-import org.example.arts.repo.CommentRepository;
 import org.example.arts.repo.InteractionRepository;
 import org.springframework.stereotype.Repository;
 

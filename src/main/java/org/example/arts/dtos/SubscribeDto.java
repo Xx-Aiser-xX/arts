@@ -1,7 +1,5 @@
 package org.example.arts.dtos;
 
-import org.example.arts.entities.User;
-
 import java.util.UUID;
 
 public class SubscribeDto {

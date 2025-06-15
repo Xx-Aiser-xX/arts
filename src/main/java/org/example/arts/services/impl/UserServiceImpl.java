@@ -209,11 +209,12 @@ public class UserServiceImpl implements UserService {
 
     public boolean isSubscribe(String authorId){
         UUID uuid = UUID.fromString(authorId);
-        User user = currentUserService.getCurrentUser()
-                .orElseThrow(() -> new AuthorizationException("Пользователь не авторизирован"));
+        Optional<User> user = currentUserService.getCurrentUser();
+        if (user.isEmpty())
+            return false;
         User author = userRepo.findById(uuid)
                 .orElseThrow(() -> new AuthorizationException("Автор не найден"));
-        Optional<Sub> sub = subRepo.signed(user.getId(), author.getId());
+        Optional<Sub> sub = subRepo.signed(user.get().getId(), author.getId());
         return (sub.isPresent() && !sub.get().isDeleted());
     }
 

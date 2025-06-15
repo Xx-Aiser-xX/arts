@@ -1,6 +1,5 @@
 package org.example.arts.dtos.create;
 
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 

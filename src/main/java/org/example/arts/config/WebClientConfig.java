@@ -10,7 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
 
-    @Value("${server.url}")
+    @Value("${server.ai.url}")
     private String url;
 
     @Bean
