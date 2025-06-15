@@ -2,6 +2,7 @@ package org.example.arts.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,9 +21,11 @@ public class AppSecurityConfiguration {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-//                        .anyRequest().authenticated()
+                        .requestMatchers(HttpMethod.GET, "/arts/likes", "/users/me", "/users/me/min", "/users/subs-with-arts", "/users/get-recent-sub").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/arts/like", "/arts", "/comments/art", "/users/subscribe").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/arts", "/comments").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/arts", "/users/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/keycloak/register", "/users/register").anonymous()
                         .anyRequest().permitAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
